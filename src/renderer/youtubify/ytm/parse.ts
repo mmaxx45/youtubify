@@ -12,15 +12,19 @@ import type {
   CategoryPage,
   Chip,
   CollectionPage,
+  Episode,
+  EpisodePage,
   HomePage,
   PageOption,
   PageType,
   PlayEndpoint,
   PlaylistOption,
+  PodcastPage,
   SearchPage,
   SearchResults,
   Shelf,
   ShelfPage,
+  TextPart,
   Thumb,
   Track
 } from "./models";
@@ -217,7 +221,8 @@ export function parseListItem(r: Json, key: string, fallbackArtists: ArtistRef[]
       detail: isSearchStyle ? restText : "",
       play,
       liked: likeStatusOf(r),
-      setVideoId: r.playlistItemData?.playlistSetVideoId
+      setVideoId: r.playlistItemData?.playlistSetVideoId,
+      page: episodePageOf(titleRun?.navigationEndpoint)
     }
   };
 }
@@ -232,6 +237,10 @@ function parseShelfItems(contents: Json[], prefix: string, fallbackArtists?: Art
       const { track, card } = parseListItem(item.musicResponsiveListItemRenderer, key, fallbackArtists);
       if (track) tracks.push(track);
       if (card) cards.push(card);
+    } else if (item.musicMultiRowListItemRenderer) {
+      // Podcast episodes (Home "Podcasts" chip shelves)
+      const episode = parseEpisodeItem(item.musicMultiRowListItemRenderer, key);
+      if (episode) cards.push(episodeCard(episode));
     }
   });
   return { cards, tracks };
@@ -567,6 +576,150 @@ export function lyricsBrowseId(nextJson: Json): string | undefined {
   return findAll(nextJson, "browseEndpoint")
     .map((b: Json) => b.browseId)
     .find((id: unknown) => typeof id === "string" && id.startsWith("MPLY"));
+}
+
+/* ---------------------------------------------------------------- podcasts */
+
+// Show pages are "MPSP" + the show's playlist id, episode pages "MPED" + the video id
+function episodePageOf(endpoint: Json): BrowseTarget | undefined {
+  const b = browseOf(endpoint);
+  return b?.pageType === "episode" ? b : undefined;
+}
+
+const refOf = (run: Json): ArtistRef | undefined => (run?.text ? { name: run.text, browseId: run.navigationEndpoint?.browseEndpoint?.browseId } : undefined);
+
+// YTM prefixes these labels with its own " • " separator
+const stripBullet = (s: string) => s.replace(/^\s*•\s*/, "").trim();
+
+/** Episode facts shared by list rows and the episode page header. */
+function episodeFacts(subtitle: Json, progressRenderer: Json) {
+  const p = progressRenderer?.musicPlaybackProgressRenderer ?? {};
+  const progress = Number(p.playbackProgressPercentage) || 0;
+  // Subtitle reads "1M views • Sep 16"; Spotify only shows the date
+  const parts = text(subtitle)
+    .split(" • ")
+    .map(s => s.trim())
+    .filter(Boolean);
+  return {
+    date: parts.length > 1 ? parts[parts.length - 1] : (parts[0] ?? ""),
+    duration: stripBullet(text(p.durationText)),
+    progress,
+    progressText: progress > 0 && progress < 100 ? stripBullet(text(p.playbackProgressText)) : "",
+    played: progress >= 100
+  };
+}
+
+/** A podcast episode row (musicMultiRowListItemRenderer) from show pages and Home shelves. */
+export function parseEpisodeItem(r: Json, key: string, show?: ArtistRef): Episode | null {
+  const play = playOf(r.onTap) ?? playOf(findKey(r.overlay, "playNavigationEndpoint"));
+  const videoId: string | undefined = (play as Json)?.watchEndpoint?.videoId;
+  if (!play || !videoId) return null;
+  return {
+    key,
+    videoId,
+    title: text(r.title),
+    description: text(r.description),
+    ...episodeFacts(r.subtitle, r.playbackProgress),
+    thumbs: thumbsOf(r.thumbnail),
+    show: refOf(r.secondTitle?.runs?.[0]) ?? show,
+    browse: episodePageOf(r.title?.runs?.[0]?.navigationEndpoint) ?? { browseId: `MPED${videoId}`, pageType: "episode" },
+    play
+  };
+}
+
+/** An episode as a Home card: wide video thumbnail, show and date underneath. */
+export function episodeCard(e: Episode): Card {
+  return {
+    key: e.key,
+    kind: "episode",
+    title: e.title,
+    subtitle: [e.show?.name, e.date, e.duration].filter(Boolean).join(" • "),
+    thumbs: e.thumbs,
+    round: false,
+    wide: true,
+    browse: e.browse,
+    play: e.play
+  };
+}
+
+const showHeaderOf = (json: Json): Json =>
+  findKey(json.contents?.twoColumnBrowseResultsRenderer?.tabs, "musicResponsiveHeaderRenderer") ?? findKey(json, "musicResponsiveHeaderRenderer") ?? {};
+
+export function parsePodcast(json: Json, id: string): PodcastPage {
+  const header = showHeaderOf(json);
+  const secondary = json.contents?.twoColumnBrowseResultsRenderer?.secondaryContents ?? json.contents;
+  const shelf = findKey(secondary, "musicShelfRenderer") ?? {};
+  const title = text(header.title);
+  const show: ArtistRef = { name: title, browseId: id };
+  return {
+    id,
+    playlistId: id.replace(/^MPSP/, ""),
+    title,
+    publisher: refOf(header.straplineTextOne?.runs?.[0]),
+    description: text(findKey(header.description, "description")),
+    thumbs: thumbsOf(header.thumbnail),
+    episodes: (shelf.contents ?? [])
+      .map((c: Json, i: number) => c.musicMultiRowListItemRenderer && parseEpisodeItem(c.musicMultiRowListItemRenderer, `ep-${id}-${i}`, show))
+      .filter((e: Episode | null): e is Episode => !!e),
+    continuation: shelf.continuations?.[0]?.nextContinuationData?.continuation,
+    saved: !!(header.buttons ?? []).find((b: Json) => b.toggleButtonRenderer)?.toggleButtonRenderer?.isToggled
+  };
+}
+
+export function parsePodcastContinuation(json: Json, show: ArtistRef, offset: number): { episodes: Episode[]; continuation?: string } {
+  const c = json.continuationContents?.musicShelfContinuation ?? {};
+  return {
+    episodes: (c.contents ?? [])
+      .map(
+        (item: Json, i: number) =>
+          item.musicMultiRowListItemRenderer && parseEpisodeItem(item.musicMultiRowListItemRenderer, `ep-${show.browseId}-${offset + i}`, show)
+      )
+      .filter((e: Episode | null): e is Episode => !!e),
+    continuation: c.continuations?.[0]?.nextContinuationData?.continuation
+  };
+}
+
+/** Description runs with their links and in-episode timestamps kept clickable. */
+export function textParts(t: Json): TextPart[] {
+  if (!t?.runs) return t?.simpleText ? [{ text: t.simpleText }] : [];
+  return t.runs.map((r: Json): TextPart => {
+    const url = r.navigationEndpoint?.urlEndpoint?.url;
+    const watch = r.navigationEndpoint?.watchEndpoint;
+    if (url) return { text: r.text, url };
+    if (watch?.continuePlayback || watch?.startTimeSeconds !== undefined) return { text: r.text, seconds: Number(watch.startTimeSeconds) || 0 };
+    return { text: r.text };
+  });
+}
+
+export function parseEpisode(json: Json, id: string): EpisodePage {
+  const header = showHeaderOf(json);
+  const buttons: Json[] = header.buttons ?? [];
+  const playButton = buttons.find(b => b.musicPlayButtonRenderer)?.musicPlayButtonRenderer;
+  const videoId = id.replace(/^MPED/, "");
+  const play = playOf(playButton?.playNavigationEndpoint) ?? { watchEndpoint: { videoId } };
+  const descriptionShelf = findKey(json.contents?.twoColumnBrowseResultsRenderer?.secondaryContents, "musicDescriptionShelfRenderer");
+  const description = textParts(descriptionShelf?.description);
+  return {
+    id,
+    episode: {
+      key: `episode-${videoId}`,
+      videoId,
+      title: text(header.title),
+      description: description.map(p => p.text).join(""),
+      ...episodeFacts(header.subtitle, header.progress),
+      thumbs: thumbsOf(header.thumbnail),
+      show: refOf(header.straplineTextOne?.runs?.[0]),
+      browse: { browseId: id, pageType: "episode" },
+      play
+    },
+    description,
+    saved: !!buttons.find(b => b.toggleButtonRenderer)?.toggleButtonRenderer?.isToggled
+  };
+}
+
+/** Shows the user follows, from the library's podcast page (FEmusic_library_non_music_audio_list). */
+export function parseLibraryPodcasts(json: Json): Card[] {
+  return parseLibraryGrid(json, "lib-pod").filter(c => c.kind === "podcast");
 }
 
 /** Linked artists and album in a queue entry's byline ("Artist • Album • 2020"). */
