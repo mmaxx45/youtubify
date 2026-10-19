@@ -13,6 +13,7 @@ import ArtistView from "./views/ArtistView.vue";
 import SearchView from "./views/SearchView.vue";
 import CategoryView from "./views/CategoryView.vue";
 import LyricsView from "./views/LyricsView.vue";
+import ShelfView from "./views/ShelfView.vue";
 import ContextMenu from "./components/ContextMenu.vue";
 import Toast from "./components/Toast.vue";
 import { navigate, route } from "./state/router";
@@ -117,6 +118,14 @@ function onChip(params?: string) {
           <ArtistView v-else-if="route.name === 'artist'" :id="route.id" :key="`artist-${route.id}`" />
           <SearchView v-else-if="route.name === 'search'" key="search" :query="route.query" />
           <CategoryView v-else-if="route.name === 'category'" :id="route.id" :key="`cat-${route.params}`" :params="route.params" :title="route.title" />
+          <ShelfView
+            v-else-if="route.name === 'shelf'"
+            :key="`shelf-${route.browseId}-${route.params}-${route.stash}`"
+            :title="route.title"
+            :browse-id="route.browseId"
+            :params="route.params"
+            :stash="route.stash"
+          />
         </KeepAlive>
         <LyricsView v-if="route.name === 'lyrics'" />
       </template>

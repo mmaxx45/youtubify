@@ -63,6 +63,25 @@ export interface Shelf {
   more?: BrowseTarget;
 }
 
+/** A filter chip or sort option on a "Show all" page; picking it reloads the list from `continuation`. */
+export interface PageOption {
+  label: string;
+  selected: boolean;
+  continuation: string;
+  // Reload for un-picking a selected filter chip (the unfiltered list)
+  deselect?: string;
+}
+
+/** The full list behind a shelf's "Show all" (e.g. an artist's discography). */
+export interface ShelfPage {
+  title: string;
+  cards: Card[];
+  tracks: Track[];
+  continuation?: string;
+  filters: PageOption[];
+  sorts: PageOption[];
+}
+
 export interface Chip {
   label: string;
   selected: boolean;

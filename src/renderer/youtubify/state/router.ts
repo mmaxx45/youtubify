@@ -9,6 +9,8 @@ export type Route =
   | { name: "collection"; id: string }
   | { name: "artist"; id: string }
   | { name: "category"; id: string; params?: string; title: string }
+  // A shelf's "Show all" page: its YTM browse page if it has one, else the stashed shelf (state/shelves.ts)
+  | { name: "shelf"; title: string; browseId?: string; params?: string; stash?: string }
   | { name: "lyrics" };
 
 const stack = ref<Route[]>([{ name: "home" }]);

@@ -1,7 +1,20 @@
 // YouTube Music data + playback for the Youtubify UI. Requests run inside the hidden YTM view
 // (window.ytf.innertube) so they use the user's signed-in session.
 
-import type { ArtistPage, BrowseGroup, Card, CategoryPage, CollectionPage, HomePage, PlayEndpoint, PlaylistOption, SearchPage, Shelf, Track } from "./models";
+import type {
+  ArtistPage,
+  BrowseGroup,
+  Card,
+  CategoryPage,
+  CollectionPage,
+  HomePage,
+  PlayEndpoint,
+  PlaylistOption,
+  SearchPage,
+  Shelf,
+  ShelfPage,
+  Track
+} from "./models";
 import * as parse from "./parse";
 
 const call = <T = unknown>(endpoint: string, body: Record<string, unknown>) => window.ytf.innertube<T>(endpoint, JSON.parse(JSON.stringify(body)));
@@ -45,6 +58,15 @@ export async function getCollectionMore(id: string, continuation: string, offset
 
 export async function getArtist(id: string): Promise<ArtistPage> {
   return parse.parseArtist(await browse({ browseId: id }), id);
+}
+
+/** The full list behind a shelf's "Show all": its browse page, or that page reloaded with a filter/sort token. */
+export async function getShelfPage(target: { browseId: string; params?: string } | { continuation: string }): Promise<ShelfPage> {
+  return parse.parseShelfPage(await browse(target), "all");
+}
+
+export async function getShelfPageMore(continuation: string, offset: number): Promise<{ cards: Card[]; tracks: Track[]; continuation?: string }> {
+  return parse.parseShelfPageContinuation(await browse({ continuation }), `all-${offset}`);
 }
 
 export async function search(query: string): Promise<SearchPage> {
