@@ -1,0 +1,258 @@
+<script setup lang="ts">
+// Spotify's "now playing bar": track info left, transport + progress centre, volume/panels right.
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import * as player from "../state/player";
+import { navigate } from "../state/router";
+import { formatTime } from "../format";
+import Cover from "./Cover.vue";
+import Icon from "./Icon.vue";
+import Slider from "./Slider.vue";
+
+const props = defineProps<{ rightPanel: "nowplaying" | "queue" | null }>();
+const emit = defineEmits<{ (e: "toggle-panel", panel: "nowplaying" | "queue"): void }>();
+
+const { track, isPlaying, duration, progress, volume, muted, repeatMode, liked, shuffled } = player;
+const previewTime = ref<number | null>(null);
+const shownTime = computed(() => previewTime.value ?? progress.value);
+
+const volumeIcon = computed(() => (muted.value || volume.value === 0 ? "volume-off" : volume.value < 50 ? "volume-low" : "volume-high"));
+const artistName = computed(() => track.value?.author ?? "");
+
+// Space toggles play/pause unless the user is typing
+function onKey(e: KeyboardEvent) {
+  const el = e.target as HTMLElement;
+  if (e.code !== "Space" || el.closest("input, textarea, [contenteditable]")) return;
+  e.preventDefault();
+  player.togglePlay();
+}
+onMounted(() => window.addEventListener("keydown", onKey));
+onBeforeUnmount(() => window.removeEventListener("keydown", onKey));
+</script>
+
+<template>
+  <footer class="bar">
+    <div class="left">
+      <template v-if="track">
+        <button class="art" aria-label="Now playing view" @click="emit('toggle-panel', 'nowplaying')">
+          <Cover :thumbs="track.thumbnails" :size="56" />
+        </button>
+        <div class="meta">
+          <span
+            class="title ytf-ellipsis"
+            :class="{ 'ytf-link': track.albumId }"
+            @click="track.albumId && navigate({ name: 'collection', id: track.albumId })"
+            >{{ track.title }}</span
+          >
+          <span
+            class="artist ytf-ellipsis"
+            :class="{ 'ytf-link': track.channelId }"
+            @click="track.channelId && navigate({ name: 'artist', id: track.channelId })"
+            >{{ artistName }}</span
+          >
+        </div>
+        <button
+          class="ytf-icon-button like"
+          :class="{ active: liked }"
+          :aria-label="liked ? 'Remove from Liked Songs' : 'Save to Liked Songs'"
+          :title="liked ? 'Remove from Liked Songs' : 'Save to Liked Songs'"
+          @click="player.toggleLike()"
+        >
+          <Icon :name="liked ? 'check-circle' : 'plus-circle'" :size="16" />
+        </button>
+      </template>
+    </div>
+
+    <div class="center">
+      <div class="controls">
+        <button class="ytf-icon-button" :class="{ active: shuffled }" title="Shuffle" aria-label="Shuffle" :disabled="!track" @click="player.shuffle()">
+          <Icon name="shuffle" :size="16" />
+          <span v-if="shuffled" class="dot" />
+        </button>
+        <button class="ytf-icon-button" title="Previous" aria-label="Previous" :disabled="!track" @click="player.previous()">
+          <Icon name="previous" :size="16" />
+        </button>
+        <button class="play" :aria-label="isPlaying ? 'Pause' : 'Play'" :title="isPlaying ? 'Pause' : 'Play'" :disabled="!track" @click="player.togglePlay()">
+          <Icon :name="isPlaying ? 'pause' : 'play'" :size="16" />
+        </button>
+        <button class="ytf-icon-button" title="Next" aria-label="Next" :disabled="!track" @click="player.next()">
+          <Icon name="next" :size="16" />
+        </button>
+        <button
+          class="ytf-icon-button"
+          :class="{ active: repeatMode !== player.REPEAT.None }"
+          :title="repeatMode === player.REPEAT.None ? 'Enable repeat' : repeatMode === player.REPEAT.All ? 'Enable repeat one' : 'Disable repeat'"
+          aria-label="Repeat"
+          :disabled="!track"
+          @click="player.cycleRepeat()"
+        >
+          <Icon :name="repeatMode === player.REPEAT.One ? 'repeat-one' : 'repeat'" :size="16" />
+          <span v-if="repeatMode !== player.REPEAT.None" class="dot" />
+        </button>
+      </div>
+      <div class="progress">
+        <span class="time">{{ formatTime(track ? shownTime : 0) }}</span>
+        <Slider
+          label="Change progress"
+          :value="track ? progress : 0"
+          :max="track ? duration : 0"
+          @preview="previewTime = $event"
+          @change="player.seek($event)"
+        />
+        <span class="time">{{ formatTime(track ? duration : 0) }}</span>
+      </div>
+    </div>
+
+    <div class="right">
+      <button
+        class="ytf-icon-button"
+        :class="{ active: props.rightPanel === 'nowplaying' }"
+        title="Now playing view"
+        aria-label="Now playing view"
+        @click="emit('toggle-panel', 'nowplaying')"
+      >
+        <Icon name="now-playing" :size="16" />
+      </button>
+      <button class="ytf-icon-button" :class="{ active: props.rightPanel === 'queue' }" title="Queue" aria-label="Queue" @click="emit('toggle-panel', 'queue')">
+        <Icon name="queue" :size="16" />
+      </button>
+      <div class="volume">
+        <button class="ytf-icon-button" :title="muted ? 'Unmute' : 'Mute'" :aria-label="muted ? 'Unmute' : 'Mute'" @click="player.toggleMute()">
+          <Icon :name="volumeIcon" :size="16" />
+        </button>
+        <Slider label="Change volume" :value="muted ? 0 : volume" :max="100" @change="player.setVolume($event)" />
+      </div>
+    </div>
+  </footer>
+</template>
+
+<style scoped>
+.bar {
+  grid-area: bar;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: var(--bar-height);
+  padding: 0 8px;
+}
+
+.left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 30%;
+  min-width: 180px;
+}
+
+.art {
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.title {
+  font-size: 14px;
+  color: var(--text-base);
+}
+
+.artist {
+  font-size: 12px;
+  color: var(--text-subdued);
+}
+
+.center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 40%;
+  max-width: 722px;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.controls .ytf-icon-button {
+  position: relative;
+  width: 32px;
+  height: 32px;
+}
+
+.dot {
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  width: 4px;
+  height: 4px;
+  margin-left: -2px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.play {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--text-base);
+  color: #000;
+  transition: transform 0.1s;
+}
+
+.play:hover:not(:disabled) {
+  transform: scale(1.06);
+}
+
+.play:disabled {
+  opacity: 0.5;
+}
+
+.progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.time {
+  min-width: 40px;
+  color: var(--text-subdued);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.time:last-child {
+  text-align: left;
+}
+
+.right {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  width: 30%;
+  min-width: 180px;
+}
+
+.right > .ytf-icon-button {
+  width: 32px;
+  height: 32px;
+}
+
+.volume {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 125px;
+}
+</style>
