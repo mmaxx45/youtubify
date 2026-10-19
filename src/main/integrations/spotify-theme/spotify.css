@@ -10,6 +10,8 @@
 :root {
   --ytf-accent: #ff0033;
   --ytf-accent-hover: #ff3355;
+  --ytf-play: #1ed760;
+  --ytf-play-hover: #3be477;
   --ytf-base: #000000;
   --ytf-panel: #121212;
   --ytf-elevated: #1f1f1f;
@@ -466,6 +468,68 @@ ytmusic-two-row-item-renderer .subtitle,
 ytmusic-two-row-item-renderer .subtitle a {
   color: var(--ytf-subdued) !important;
   font-size: 14px !important;
+}
+
+/* Card play button: Spotify's green circle, bottom-right, sliding up on hover. */
+ytmusic-two-row-item-renderer ytmusic-item-thumbnail-overlay-renderer {
+  background: transparent !important;
+}
+
+ytmusic-two-row-item-renderer ytmusic-item-thumbnail-overlay-renderer #content {
+  inset: 0 !important;
+  position: absolute !important;
+  width: auto !important;
+  height: auto !important;
+}
+
+ytmusic-two-row-item-renderer ytmusic-play-button-renderer {
+  --ytmusic-play-button-icon-color: #000;
+  --ytmusic-play-button-background-color: var(--ytf-play);
+  --ytmusic-play-button-active-background-color: var(--ytf-play);
+  --ytmusic-play-button-icon-loading-color: #000;
+  position: absolute !important;
+  inset: auto 8px 8px auto !important;
+  margin: 0 !important;
+  width: 48px !important;
+  height: 48px !important;
+  border-radius: 50% !important;
+  background: var(--ytf-play) !important;
+  box-shadow: 0 8px 8px rgba(0, 0, 0, 0.3);
+  opacity: 0;
+  transform: translateY(8px);
+  transition:
+    opacity 0.3s,
+    transform 0.3s,
+    background-color 0.1s !important;
+}
+
+ytmusic-two-row-item-renderer:hover ytmusic-play-button-renderer,
+ytmusic-two-row-item-renderer ytmusic-play-button-renderer[state="playing"],
+ytmusic-two-row-item-renderer ytmusic-play-button-renderer[state="paused"] {
+  opacity: 1 !important;
+  transform: none;
+}
+
+ytmusic-two-row-item-renderer ytmusic-play-button-renderer:hover {
+  background: var(--ytf-play-hover) !important;
+  transform: scale(1.04) !important;
+}
+
+/* YTM's own dark play circle lives inside the button; flatten it so only the green button shows. */
+ytmusic-two-row-item-renderer ytmusic-play-button-renderer .content-wrapper {
+  width: 100% !important;
+  height: 100% !important;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  background: transparent !important;
+  border-radius: 50% !important;
+  box-shadow: none !important;
+}
+
+ytmusic-two-row-item-renderer ytmusic-play-button-renderer .icon {
+  color: #000 !important;
+  fill: #000 !important;
 }
 
 /* Song rows (Quick picks, playlists, albums, search). */
