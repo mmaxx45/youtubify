@@ -1,8 +1,9 @@
 <script setup lang="ts">
-// Spotify's search: "Browse all" tiles when empty, otherwise Top result + Songs, then rows.
-import { computed, ref, watch } from "vue";
-import type { BrowseGroup, SearchPage, Track } from "../ytm/models";
-import { getMoods, play, search } from "../ytm/client";
+// Spotify's search: "Browse all" tiles when empty, otherwise filter chips over either the "All"
+// overview (Top result + Songs, then rows) or the full, endlessly scrolling list of one result type.
+import { computed, nextTick, ref, watch } from "vue";
+import type { BrowseGroup, SearchFilter, SearchPage, SearchResults, Track } from "../ytm/models";
+import { getMoods, play, search, searchFiltered, searchMore } from "../ytm/client";
 import { navigate, open } from "../state/router";
 import { isPlaying, togglePlay, track as current } from "../state/player";
 import Cover from "../components/Cover.vue";
@@ -10,12 +11,42 @@ import Icon from "../components/Icon.vue";
 import MediaCard from "../components/MediaCard.vue";
 import TrackList from "../components/TrackList.vue";
 
-const props = defineProps<{ query: string }>();
+const props = defineProps<{ query: string; filter?: SearchFilter }>();
 
+const chips: { label: string; filter?: SearchFilter }[] = [
+  { label: "All" },
+  { label: "Songs", filter: "songs" },
+  { label: "Artists", filter: "artists" },
+  { label: "Albums", filter: "albums" },
+  { label: "Playlists", filter: "playlists" },
+  { label: "Podcasts", filter: "podcasts" },
+  { label: "Videos", filter: "videos" },
+  { label: "Profiles", filter: "profiles" }
+];
+const setFilter = (filter?: SearchFilter) => navigate({ name: "search", query: props.query, filter });
+
+const scroller = ref<HTMLElement | null>(null);
 const result = ref<SearchPage | null>(null);
+// Results of the selected filter, tagged with it so another type's list is never shown
+type Filtered = SearchResults & { filter: SearchFilter };
+const filtered = ref<Filtered | null>(null);
 const loading = ref(false);
+const loadingMore = ref(false);
 const error = ref("");
 const moods = ref<BrowseGroup[]>([]);
+
+// Recent results stay cached (with the pages loaded so far), so chip switches and back/forward are instant
+const cache = new Map<string, SearchPage | Filtered>();
+const cacheKey = (q: string, f?: SearchFilter) => `${f ?? "all"}:${q}`;
+function store(key: string, value: SearchPage | Filtered) {
+  cache.delete(key);
+  cache.set(key, value);
+  if (cache.size > 30) cache.delete(cache.keys().next().value!);
+}
+function show(value: SearchPage | Filtered, f?: SearchFilter) {
+  if (f) filtered.value = value as Filtered;
+  else result.value = value as SearchPage;
+}
 
 const RECENTS_KEY = "ytf.recentSearches";
 const readRecents = (): string[] => {
@@ -35,29 +66,75 @@ function remember(q: string) {
   }
 }
 
+const isCurrentSearch = (q: string, f?: SearchFilter) => props.query === q && props.filter === f;
+
 watch(
-  () => props.query,
-  async q => {
+  () => [props.query, props.filter] as const,
+  async ([q, f], old) => {
     error.value = "";
+    if (old) scroller.value?.scrollTo({ top: 0 });
     if (!q) {
       result.value = null;
+      filtered.value = null;
       if (!moods.value.length) moods.value = await getMoods().catch(() => []);
       return;
     }
+    const key = cacheKey(q, f);
+    const hit = cache.get(key);
+    if (hit) {
+      show(hit, f);
+      loading.value = false;
+      remember(q);
+      nextTick(loadMore);
+      return;
+    }
+    // Typing keeps the old results up until the new ones arrive; a different type starts blank
+    if (old && old[1] !== f) {
+      if (f) filtered.value = null;
+      else result.value = null;
+    }
     loading.value = true;
     try {
-      const r = await search(q);
-      if (props.query !== q) return;
-      result.value = r;
+      const r = f ? { ...(await searchFiltered(q, f)), filter: f } : await search(q);
+      store(key, r);
+      if (!isCurrentSearch(q, f)) return;
+      show(r, f);
       remember(q);
+      nextTick(loadMore);
     } catch (e) {
-      error.value = e instanceof Error ? e.message : String(e);
+      if (isCurrentSearch(q, f)) error.value = e instanceof Error ? e.message : String(e);
     } finally {
-      if (props.query === q) loading.value = false;
+      if (isCurrentSearch(q, f)) loading.value = false;
     }
   },
   { immediate: true }
 );
+
+// Filtered lists continue as you scroll (and right away while they don't fill the view yet)
+async function loadMore() {
+  const el = scroller.value;
+  const page = filtered.value;
+  if (!el || !props.filter || page?.filter !== props.filter || !page.continuation || loadingMore.value) return;
+  if (el.scrollTop + el.clientHeight < el.scrollHeight - 800) return;
+  loadingMore.value = true;
+  try {
+    const more = await searchMore(page.continuation, page.tracks.length + page.cards.length);
+    // Later pages can repeat earlier results
+    const videoIds = new Set(page.tracks.map(t => t.videoId));
+    const browseIds = new Set(page.cards.map(c => c.browse?.browseId));
+    page.tracks.push(...more.tracks.filter(t => !videoIds.has(t.videoId)));
+    page.cards.push(...more.cards.filter(c => !c.browse || !browseIds.has(c.browse.browseId)));
+    page.continuation = more.continuation;
+  } catch {
+    page.continuation = undefined;
+  } finally {
+    loadingMore.value = false;
+  }
+  nextTick(loadMore);
+}
+
+const filterTracks = computed(() => props.filter === "songs" || props.filter === "videos");
+const filterEmpty = computed(() => !!filtered.value && !filtered.value.tracks.length && !filtered.value.cards.length);
 
 const top = computed(() => result.value?.top);
 const topType = computed(() => {
@@ -81,100 +158,217 @@ const songs = computed<Track[]>(() => {
 </script>
 
 <template>
-  <div class="view">
-    <template v-if="!query">
-      <section v-if="recents.length" class="block">
-        <h2 class="ytf-section-title">Recent searches</h2>
-        <div class="recents">
-          <button v-for="r in recents" :key="r" class="ytf-pill" @click="navigate({ name: 'search', query: r })">
-            <Icon name="search" :size="16" />
-            {{ r }}
-          </button>
-        </div>
-      </section>
-      <section v-for="g in moods" :key="g.title" class="block">
-        <h2 class="ytf-section-title">{{ g.title || "Browse all" }}</h2>
-        <div class="browse">
-          <button
-            v-for="t in g.tiles"
-            :key="t.key"
-            class="genre"
-            :style="{ '--tile': t.color }"
-            @click="navigate({ name: 'category', id: t.browseId, params: t.params, title: t.label })"
-          >
-            <span>{{ t.label }}</span>
-          </button>
-        </div>
-      </section>
-    </template>
-
-    <div v-else-if="error" class="state">
-      <p>Search failed. {{ error }}</p>
+  <div ref="scroller" class="view" @scroll.passive="loadMore">
+    <div v-if="query" class="chips" role="tablist" aria-label="Filter results">
+      <button
+        v-for="c in chips"
+        :key="c.label"
+        class="ytf-pill"
+        :class="{ selected: c.filter === filter }"
+        role="tab"
+        :aria-selected="c.filter === filter"
+        @click="setFilter(c.filter)"
+      >
+        {{ c.label }}
+      </button>
     </div>
 
-    <div v-else-if="loading && !result" class="state">
-      <div class="top-skeleton ytf-skeleton" />
-    </div>
-
-    <template v-else-if="result">
-      <div v-if="top || songs.length" class="top-row">
-        <section v-if="top" class="top">
-          <h2 class="ytf-section-title">Top result</h2>
-          <div class="top-card" role="button" tabindex="0" @click="top.card.browse ? open(top.card.browse) : playTop()">
-            <Cover :thumbs="top.card.thumbs" :size="92" :round="top.card.round" :radius="6" />
-            <div class="top-title ytf-ellipsis">{{ top.card.title }}</div>
-            <div class="top-sub">
-              <span class="ytf-ellipsis">{{ top.card.subtitle.split(" • ").slice(1).join(" • ") || top.card.subtitle }}</span>
-              <span class="type-pill">{{ topType }}</span>
-            </div>
-            <button
-              v-if="top.card.play || top.card.browse"
-              class="ytf-play-button top-play"
-              :class="{ visible: topIsCurrent && isPlaying }"
-              aria-label="Play"
-              @click.stop="playTop"
-            >
-              <Icon :name="topIsCurrent && isPlaying ? 'pause' : 'play'" :size="24" />
+    <div class="content" :class="{ 'with-chips': query }">
+      <template v-if="!query">
+        <section v-if="recents.length" class="block">
+          <h2 class="ytf-section-title">Recent searches</h2>
+          <div class="recents">
+            <button v-for="r in recents" :key="r" class="ytf-pill" @click="navigate({ name: 'search', query: r })">
+              <Icon name="search" :size="16" />
+              {{ r }}
             </button>
           </div>
         </section>
-        <section v-if="songs.length" class="songs">
-          <h2 class="ytf-section-title">Songs</h2>
-          <TrackList :tracks="songs" :show-album="false" :show-index="false" />
+        <section v-for="g in moods" :key="g.title" class="block">
+          <h2 class="ytf-section-title">{{ g.title || "Browse all" }}</h2>
+          <div class="browse">
+            <button
+              v-for="t in g.tiles"
+              :key="t.key"
+              class="genre"
+              :style="{ '--tile': t.color }"
+              @click="navigate({ name: 'category', id: t.browseId, params: t.params, title: t.label })"
+            >
+              <span>{{ t.label }}</span>
+            </button>
+          </div>
         </section>
+      </template>
+
+      <div v-else-if="error" class="state">
+        <p>Search failed. {{ error }}</p>
       </div>
 
-      <section v-if="result.artists.length" class="block cards">
-        <h2 class="ytf-section-title">Artists</h2>
-        <div class="row">
-          <MediaCard v-for="c in result.artists" :key="c.key" :card="c" />
+      <template v-else-if="filter">
+        <div v-if="!filtered" :class="filterTracks ? 'skeleton-rows' : 'grid'">
+          <div v-for="i in 10" :key="i" class="ytf-skeleton" :class="filterTracks ? 'skeleton-row' : 'skeleton-card'" />
         </div>
-      </section>
-      <section v-if="result.albums.length" class="block cards">
-        <h2 class="ytf-section-title">Albums</h2>
-        <div class="row">
-          <MediaCard v-for="c in result.albums" :key="c.key" :card="c" />
+        <div v-else-if="filterEmpty" class="empty">
+          <h2>No results found for "{{ query }}"</h2>
+          <p>Please make sure your words are spelled correctly, or use fewer or different keywords.</p>
         </div>
-      </section>
-      <section v-if="result.playlists.length" class="block cards">
-        <h2 class="ytf-section-title">Playlists</h2>
-        <div class="row">
-          <MediaCard v-for="c in result.playlists" :key="c.key" :card="c" />
+        <TrackList v-else-if="filterTracks" class="table" :tracks="filtered.tracks" :show-album="filter === 'songs'" show-header />
+        <div v-else class="grid">
+          <MediaCard v-for="c in filtered.cards" :key="c.key" :card="c" />
         </div>
-      </section>
-      <p v-if="!top && !songs.length && !result.artists.length && !result.albums.length && !result.playlists.length" class="state">
-        No results found for "{{ query }}".
-      </p>
-    </template>
+      </template>
+
+      <div v-else-if="loading && !result" class="state">
+        <div class="top-skeleton ytf-skeleton" />
+      </div>
+
+      <template v-else-if="result">
+        <div v-if="top || songs.length" class="top-row">
+          <section v-if="top" class="top">
+            <h2 class="ytf-section-title">Top result</h2>
+            <div class="top-card" role="button" tabindex="0" @click="top.card.browse ? open(top.card.browse) : playTop()">
+              <Cover :thumbs="top.card.thumbs" :size="92" :round="top.card.round" :radius="6" />
+              <div class="top-title ytf-ellipsis">{{ top.card.title }}</div>
+              <div class="top-sub">
+                <span class="ytf-ellipsis">{{ top.card.subtitle.split(" • ").slice(1).join(" • ") || top.card.subtitle }}</span>
+                <span class="type-pill">{{ topType }}</span>
+              </div>
+              <button
+                v-if="top.card.play || top.card.browse"
+                class="ytf-play-button top-play"
+                :class="{ visible: topIsCurrent && isPlaying }"
+                aria-label="Play"
+                @click.stop="playTop"
+              >
+                <Icon :name="topIsCurrent && isPlaying ? 'pause' : 'play'" :size="24" />
+              </button>
+            </div>
+          </section>
+          <section v-if="songs.length" class="songs">
+            <h2 class="ytf-section-title"><button class="heading-link" @click="setFilter('songs')">Songs</button></h2>
+            <TrackList :tracks="songs" :show-album="false" :show-index="false" />
+          </section>
+        </div>
+
+        <section v-if="result.artists.length" class="block cards">
+          <h2 class="ytf-section-title"><button class="heading-link" @click="setFilter('artists')">Artists</button></h2>
+          <div class="row">
+            <MediaCard v-for="c in result.artists" :key="c.key" :card="c" />
+          </div>
+        </section>
+        <section v-if="result.albums.length" class="block cards">
+          <h2 class="ytf-section-title"><button class="heading-link" @click="setFilter('albums')">Albums</button></h2>
+          <div class="row">
+            <MediaCard v-for="c in result.albums" :key="c.key" :card="c" />
+          </div>
+        </section>
+        <section v-if="result.playlists.length" class="block cards">
+          <h2 class="ytf-section-title"><button class="heading-link" @click="setFilter('playlists')">Playlists</button></h2>
+          <div class="row">
+            <MediaCard v-for="c in result.playlists" :key="c.key" :card="c" />
+          </div>
+        </section>
+        <p v-if="!top && !songs.length && !result.artists.length && !result.albums.length && !result.playlists.length" class="state">
+          No results found for "{{ query }}".
+        </p>
+      </template>
+    </div>
   </div>
 </template>
 
 <style scoped>
 .view {
+  --chips-height: 56px;
   height: 100%;
   overflow-y: auto;
-  padding: 24px 24px 32px;
   container-type: inline-size;
+}
+
+/* Spotify's filter chips stay pinned to the top of the results */
+.chips {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  gap: 8px;
+  height: var(--chips-height);
+  padding: 12px 24px;
+  background: var(--background-base);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.chips::-webkit-scrollbar {
+  display: none;
+}
+
+.chips .ytf-pill {
+  flex: none;
+}
+
+.content {
+  padding: 24px 24px 32px;
+}
+
+.content.with-chips {
+  padding-top: 8px;
+}
+
+/* The table header sticks under the chips, like Spotify's */
+.table :deep(.row.head) {
+  position: sticky;
+  top: var(--chips-height);
+  z-index: 1;
+  margin: 0 -24px 16px;
+  padding: 0 40px;
+  background: var(--background-base);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  margin: 0 -12px;
+}
+
+.skeleton-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.skeleton-row {
+  height: 40px;
+}
+
+.skeleton-card {
+  aspect-ratio: 3 / 4;
+  margin: 12px;
+}
+
+.empty {
+  padding: 64px 0;
+  text-align: center;
+}
+
+.empty h2 {
+  font-size: 24px;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+.empty p {
+  color: var(--text-subdued);
+  font-size: 16px;
+}
+
+.heading-link {
+  font: inherit;
+  color: inherit;
+  letter-spacing: inherit;
+}
+
+.heading-link:hover {
+  text-decoration: underline;
 }
 
 .block {

@@ -3,14 +3,14 @@
 // and the full description with clickable links and timestamps.
 import { computed, ref, watch } from "vue";
 import type { EpisodePage, TextPart } from "../ytm/models";
-import { getEpisode, openExternal, play, playEpisodeAt } from "../ytm/client";
+import { canOpenExternal, getEpisode, openExternal, play, playEpisodeAt } from "../ytm/client";
 import { pickThumb } from "../ytm/parse";
 import { averageColor } from "../format";
 import { navigate } from "../state/router";
 import { isPlaying, progress, seek, togglePlay, track } from "../state/player";
 import { openMenuAt } from "../state/menu";
 import { isSavedEpisode, rememberShows, seedSavedEpisode, setSavedEpisode } from "../state/podcasts";
-import { episodeMenu } from "../menus";
+import { copyLink, episodeMenu } from "../menus";
 import Cover from "../components/Cover.vue";
 import Icon from "../components/Icon.vue";
 
@@ -53,10 +53,13 @@ function onPlay() {
   else if (episode.value) play(episode.value.play);
 }
 
-// Timestamps jump inside the episode, starting it first if something else is playing
+// Timestamps jump inside the episode, starting it first if something else is playing. The app only
+// opens YouTube/Google pages in the browser, so other links are copied instead.
 function onPart(part: TextPart) {
-  if (part.url) openExternal(part.url);
-  else if (part.seconds !== undefined && episode.value) {
+  if (part.url) {
+    if (canOpenExternal(part.url)) openExternal(part.url);
+    else copyLink(part.url);
+  } else if (part.seconds !== undefined && episode.value) {
     if (isCurrent.value) seek(part.seconds);
     else playEpisodeAt(episode.value.videoId, part.seconds);
   }

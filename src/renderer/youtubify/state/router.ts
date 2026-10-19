@@ -1,17 +1,21 @@
 // In-app navigation with Spotify-style back/forward history.
 
 import { computed, ref } from "vue";
-import type { BrowseTarget } from "../ytm/models";
+import type { BrowseTarget, SearchFilter } from "../ytm/models";
 
 export type Route =
   | { name: "home"; chip?: string }
-  | { name: "search"; query: string }
+  // filter: one result type (Spotify's chips); none = the "All" overview
+  | { name: "search"; query: string; filter?: SearchFilter }
   | { name: "collection"; id: string }
   | { name: "artist"; id: string }
   | { name: "category"; id: string; params?: string; title: string }
+  // A shelf's "Show all" page: its YTM browse page if it has one, else the stashed shelf (state/shelves.ts)
+  | { name: "shelf"; title: string; browseId?: string; params?: string; stash?: string }
   | { name: "podcast"; id: string }
   | { name: "episode"; id: string }
-  | { name: "lyrics" };
+  | { name: "lyrics" }
+  | { name: "settings" };
 
 const stack = ref<Route[]>([{ name: "home" }]);
 const index = ref(0);

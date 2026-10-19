@@ -15,6 +15,8 @@ import CategoryView from "./views/CategoryView.vue";
 import LyricsView from "./views/LyricsView.vue";
 import PodcastView from "./views/PodcastView.vue";
 import EpisodeView from "./views/EpisodeView.vue";
+import ShelfView from "./views/ShelfView.vue";
+import SettingsView from "./views/SettingsView.vue";
 import ContextMenu from "./components/ContextMenu.vue";
 import Toast from "./components/Toast.vue";
 import { navigate, route } from "./state/router";
@@ -117,12 +119,21 @@ function onChip(params?: string) {
           <HomeView v-if="route.name === 'home'" :key="`home-${route.chip ?? ''}`" :chip="route.chip" @chip="onChip" />
           <CollectionView v-else-if="route.name === 'collection'" :id="route.id" :key="`col-${route.id}`" />
           <ArtistView v-else-if="route.name === 'artist'" :id="route.id" :key="`artist-${route.id}`" />
-          <SearchView v-else-if="route.name === 'search'" key="search" :query="route.query" />
+          <SearchView v-else-if="route.name === 'search'" key="search" :query="route.query" :filter="route.filter" />
           <CategoryView v-else-if="route.name === 'category'" :id="route.id" :key="`cat-${route.params}`" :params="route.params" :title="route.title" />
           <PodcastView v-else-if="route.name === 'podcast'" :id="route.id" :key="`pod-${route.id}`" />
           <EpisodeView v-else-if="route.name === 'episode'" :id="route.id" :key="`ep-${route.id}`" />
+          <ShelfView
+            v-else-if="route.name === 'shelf'"
+            :key="`shelf-${route.browseId}-${route.params}-${route.stash}`"
+            :title="route.title"
+            :browse-id="route.browseId"
+            :params="route.params"
+            :stash="route.stash"
+          />
         </KeepAlive>
         <LyricsView v-if="route.name === 'lyrics'" />
+        <SettingsView v-if="route.name === 'settings'" />
       </template>
     </main>
 

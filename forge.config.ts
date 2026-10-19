@@ -38,7 +38,7 @@ const config: ForgeConfig = {
     protocols: [
       {
         name: "YouTube Music Desktop App",
-        schemes: ["ytmd"]
+        schemes: ["youtubify"]
       }
     ],
     appCategoryType: "public.app-category.music",
@@ -53,14 +53,14 @@ const config: ForgeConfig = {
     new MakerRpm({
       options: {
         categories: ["AudioVideo", "Audio"],
-        mimeType: ["x-scheme-handler/ytmd"],
+        mimeType: ["x-scheme-handler/youtubify"],
         icon: "./src/assets/icons/ytmd.png"
       }
     }),
     new MakerDeb({
       options: {
         categories: ["AudioVideo", "Audio"],
-        mimeType: ["x-scheme-handler/ytmd"],
+        mimeType: ["x-scheme-handler/youtubify"],
         section: "sound",
         icon: "./src/assets/icons/ytmd.png"
       }

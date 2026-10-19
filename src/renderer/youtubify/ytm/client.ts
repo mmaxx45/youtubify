@@ -14,8 +14,11 @@ import type {
   PlayEndpoint,
   PlaylistOption,
   PodcastPage,
+  SearchFilter,
   SearchPage,
+  SearchResults,
   Shelf,
+  ShelfPage,
   Track
 } from "./models";
 import * as parse from "./parse";
@@ -29,7 +32,11 @@ const searchFilters = {
   videos: "EgWKAQIQAWoKEAkQChAFEAMQBA==",
   albums: "EgWKAQIYAWoKEAkQChAFEAMQBA==",
   artists: "EgWKAQIgAWoKEAkQChAFEAMQBA==",
-  playlists: "EgeKAQQoAEABagoQAxAEEAoQCRAF"
+  playlists: "EgeKAQQoAEABagoQAxAEEAoQCRAF",
+  // From the chip cloud of an unfiltered search
+  featuredPlaylists: "EgeKAQQoADgBahIQBRAJEAMQChAEEA4QEBAVEBE%3D",
+  podcasts: "EgWKAQJQAWoSEAUQCRADEAoQBBAOEBAQFRAR",
+  profiles: "EgWKAQJYAWoSEAUQCRADEAoQBBAOEBAQFRAR"
 } as const;
 
 export async function getHome(chipParams?: string, minShelves = 8): Promise<HomePage> {
@@ -63,6 +70,15 @@ export async function getArtist(id: string): Promise<ArtistPage> {
   return parse.parseArtist(await browse({ browseId: id }), id);
 }
 
+/** The full list behind a shelf's "Show all": its browse page, or that page reloaded with a filter/sort token. */
+export async function getShelfPage(target: { browseId: string; params?: string } | { continuation: string }): Promise<ShelfPage> {
+  return parse.parseShelfPage(await browse(target), "all");
+}
+
+export async function getShelfPageMore(continuation: string, offset: number): Promise<{ cards: Card[]; tracks: Track[]; continuation?: string }> {
+  return parse.parseShelfPageContinuation(await browse({ continuation }), `all-${offset}`);
+}
+
 export async function search(query: string): Promise<SearchPage> {
   const [top, songs, artists, albums, playlists] = await Promise.all([
     call("search", { query }),
@@ -79,6 +95,26 @@ export async function search(query: string): Promise<SearchPage> {
   page.albums = pick(parse.parseSearchFiltered(albums, "s-albums").cards, page.albums);
   page.playlists = pick(parse.parseSearchFiltered(playlists, "s-playlists").cards, page.playlists);
   return page;
+}
+
+/** First page of results of one type, for Spotify's filter chips (Songs, Artists, ...). */
+export async function searchFiltered(query: string, filter: SearchFilter): Promise<SearchResults> {
+  if (filter !== "playlists") return parse.parseSearchFiltered(await call("search", { query, params: searchFilters[filter] }), `sf-${filter}`);
+  // Like Spotify's own playlists coming first: YTM's featured ones (a single page), then community playlists
+  const [featured, community] = await Promise.all([
+    call("search", { query, params: searchFilters.featuredPlaylists })
+      .then(j => parse.parseSearchFiltered(j, "sf-featured").cards)
+      .catch((): Card[] => []),
+    call("search", { query, params: searchFilters.playlists }).then(j => parse.parseSearchFiltered(j, "sf-playlists"))
+  ]);
+  const seen = new Set<string>();
+  community.cards = [...featured, ...community.cards].filter(c => !c.browse || (!seen.has(c.browse.browseId) && !!seen.add(c.browse.browseId)));
+  return community;
+}
+
+/** The next page of filtered search results; `offset` (results so far) keeps item keys unique. */
+export async function searchMore(continuation: string, offset: number): Promise<SearchResults> {
+  return parse.parseSearchContinuation(await call("search", { continuation }), `sf-${offset}`);
 }
 
 export async function getMoods(): Promise<BrowseGroup[]> {
@@ -162,6 +198,26 @@ export async function addToQueue(target: { videoId?: string; playlistId?: string
   return window.ytf.queueAdd({ ...target, next });
 }
 
+/*
+ * Queue editing. `index` is the song's position in the engine's queue (player.queueItems) and
+ * `videoId` the song expected there; edits on a queue that changed meanwhile return false.
+ */
+export const removeFromQueue = (index: number, videoId: string) => window.ytf.queueEdit({ op: "remove", index, videoId }) as Promise<boolean>;
+export const moveInQueue = (index: number, to: number, videoId: string) => window.ytf.queueEdit({ op: "move", index, to, videoId }) as Promise<boolean>;
+/** Removes every song after the current one; resolves to how many were removed. */
+export const clearQueue = () => window.ytf.queueEdit({ op: "clear" }) as Promise<number>;
+
+/** Artist / album links of a queued song (the engine's queue only carries plain text). */
+export async function getQueueItemLinks(index: number, videoId: string): Promise<{ artists: ArtistRef[]; album?: ArtistRef }> {
+  const runs = await window.ytf.queueEdit({ op: "details", index, videoId });
+  return parse.parseBylineLinks(Array.isArray(runs) ? runs : []);
+}
+
+/** Spotify's "Recently played": the YouTube Music listening history (needs a signed-in account). */
+export async function getHistory(): Promise<{ tracks: Track[]; signInRequired: boolean }> {
+  return parse.parseHistory(await browse({ browseId: "FEmusic_history" }));
+}
+
 /* ---------------------------------------------------------------- playback */
 
 // Values from Vue state are reactive Proxies, which Electron IPC cannot clone: send plain copies
@@ -215,4 +271,13 @@ export const saveEpisode = (videoId: string, save: boolean) =>
 /** Play an episode from a point in time (description timestamps). */
 export const playEpisodeAt = (videoId: string, seconds: number) => play({ watchEndpoint: { videoId, startTimeSeconds: seconds } });
 
+// Main only opens https Google/YouTube pages in the browser (ytm-bridge isAccountUrl)
+export const canOpenExternal = (url: string) => {
+  try {
+    const u = new URL(url);
+    return u.protocol === "https:" && /(^|\.)(google|youtube)\.com$/.test(u.hostname);
+  } catch {
+    return false;
+  }
+};
 export const openExternal = (url: string) => window.ytf.openExternal(url);
