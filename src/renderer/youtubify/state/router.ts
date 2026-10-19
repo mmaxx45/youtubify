@@ -1,11 +1,12 @@
 // In-app navigation with Spotify-style back/forward history.
 
 import { computed, ref } from "vue";
-import type { BrowseTarget } from "../ytm/models";
+import type { BrowseTarget, SearchFilter } from "../ytm/models";
 
 export type Route =
   | { name: "home"; chip?: string }
-  | { name: "search"; query: string }
+  // filter: one result type (Spotify's chips); none = the "All" overview
+  | { name: "search"; query: string; filter?: SearchFilter }
   | { name: "collection"; id: string }
   | { name: "artist"; id: string }
   | { name: "category"; id: string; params?: string; title: string }

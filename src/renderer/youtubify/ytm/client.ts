@@ -1,7 +1,21 @@
 // YouTube Music data + playback for the Youtubify UI. Requests run inside the hidden YTM view
 // (window.ytf.innertube) so they use the user's signed-in session.
 
-import type { ArtistPage, BrowseGroup, Card, CategoryPage, CollectionPage, HomePage, PlayEndpoint, PlaylistOption, SearchPage, Shelf, Track } from "./models";
+import type {
+  ArtistPage,
+  BrowseGroup,
+  Card,
+  CategoryPage,
+  CollectionPage,
+  HomePage,
+  PlayEndpoint,
+  PlaylistOption,
+  SearchFilter,
+  SearchPage,
+  SearchResults,
+  Shelf,
+  Track
+} from "./models";
 import * as parse from "./parse";
 
 const call = <T = unknown>(endpoint: string, body: Record<string, unknown>) => window.ytf.innertube<T>(endpoint, JSON.parse(JSON.stringify(body)));
@@ -13,7 +27,11 @@ const searchFilters = {
   videos: "EgWKAQIQAWoKEAkQChAFEAMQBA==",
   albums: "EgWKAQIYAWoKEAkQChAFEAMQBA==",
   artists: "EgWKAQIgAWoKEAkQChAFEAMQBA==",
-  playlists: "EgeKAQQoAEABagoQAxAEEAoQCRAF"
+  playlists: "EgeKAQQoAEABagoQAxAEEAoQCRAF",
+  // From the chip cloud of an unfiltered search
+  featuredPlaylists: "EgeKAQQoADgBahIQBRAJEAMQChAEEA4QEBAVEBE%3D",
+  podcasts: "EgWKAQJQAWoSEAUQCRADEAoQBBAOEBAQFRAR",
+  profiles: "EgWKAQJYAWoSEAUQCRADEAoQBBAOEBAQFRAR"
 } as const;
 
 export async function getHome(chipParams?: string, minShelves = 8): Promise<HomePage> {
@@ -63,6 +81,26 @@ export async function search(query: string): Promise<SearchPage> {
   page.albums = pick(parse.parseSearchFiltered(albums, "s-albums").cards, page.albums);
   page.playlists = pick(parse.parseSearchFiltered(playlists, "s-playlists").cards, page.playlists);
   return page;
+}
+
+/** First page of results of one type, for Spotify's filter chips (Songs, Artists, ...). */
+export async function searchFiltered(query: string, filter: SearchFilter): Promise<SearchResults> {
+  if (filter !== "playlists") return parse.parseSearchFiltered(await call("search", { query, params: searchFilters[filter] }), `sf-${filter}`);
+  // Like Spotify's own playlists coming first: YTM's featured ones (a single page), then community playlists
+  const [featured, community] = await Promise.all([
+    call("search", { query, params: searchFilters.featuredPlaylists })
+      .then(j => parse.parseSearchFiltered(j, "sf-featured").cards)
+      .catch((): Card[] => []),
+    call("search", { query, params: searchFilters.playlists }).then(j => parse.parseSearchFiltered(j, "sf-playlists"))
+  ]);
+  const seen = new Set<string>();
+  community.cards = [...featured, ...community.cards].filter(c => !c.browse || (!seen.has(c.browse.browseId) && !!seen.add(c.browse.browseId)));
+  return community;
+}
+
+/** The next page of filtered search results; `offset` (results so far) keeps item keys unique. */
+export async function searchMore(continuation: string, offset: number): Promise<SearchResults> {
+  return parse.parseSearchContinuation(await call("search", { continuation }), `sf-${offset}`);
 }
 
 export async function getMoods(): Promise<BrowseGroup[]> {

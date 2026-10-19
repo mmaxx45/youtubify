@@ -18,6 +18,12 @@ watch(route, r => {
   if (r.name !== "search" && document.activeElement !== input.value) query.value = "";
 });
 
+// A new query keeps the selected filter chip, like Spotify
+function searchFor(q: string) {
+  const r = route.value;
+  navigate({ name: "search", query: q, filter: r.name === "search" ? r.filter : undefined }, r.name === "search");
+}
+
 let typingTimer: ReturnType<typeof setTimeout> | undefined;
 let suggestTimer: ReturnType<typeof setTimeout> | undefined;
 watch(query, q => {
@@ -27,7 +33,7 @@ watch(query, q => {
   // Like Spotify, results update as you type
   typingTimer = setTimeout(() => {
     if (!focused.value) return;
-    if (q.trim()) navigate({ name: "search", query: q.trim() }, route.value.name === "search");
+    if (q.trim()) searchFor(q.trim());
   }, 450);
   suggestTimer = setTimeout(async () => {
     const want = q;
@@ -43,7 +49,7 @@ function submit(text = query.value) {
   if (!q) return;
   query.value = q;
   suggestions.value = [];
-  navigate({ name: "search", query: q }, route.value.name === "search");
+  searchFor(q);
   input.value?.blur();
 }
 

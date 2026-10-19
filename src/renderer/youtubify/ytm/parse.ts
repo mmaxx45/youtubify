@@ -17,6 +17,7 @@ import type {
   PlayEndpoint,
   PlaylistOption,
   SearchPage,
+  SearchResults,
   Shelf,
   Thumb,
   Track
@@ -422,13 +423,21 @@ export function parseSearchTop(json: Json, query: string): Pick<SearchPage, "que
   return result;
 }
 
+// Search shelves page with nextContinuationData; newer responses may use a continuation item instead
+const shelfContinuation = (shelf: Json, contents: Json[]): string | undefined =>
+  shelf?.continuations?.[0]?.nextContinuationData?.continuation ?? continuationToken(contents);
+
 /** Results of a search filtered to one type (songs, artists, ...). */
-export function parseSearchFiltered(json: Json, prefix: string): { cards: Card[]; tracks: Track[] } {
+export function parseSearchFiltered(json: Json, prefix: string): SearchResults {
   const shelves = findAll(json.contents, "musicShelfRenderer");
-  return parseShelfItems(
-    shelves.flatMap(s => s.contents ?? []),
-    prefix
-  );
+  const contents = shelves.flatMap(s => s.contents ?? []);
+  return { ...parseShelfItems(contents, prefix), continuation: shelfContinuation(shelves[0], contents) };
+}
+
+/** The next page of filtered search results (search with `{ continuation }`). */
+export function parseSearchContinuation(json: Json, prefix: string): SearchResults {
+  const shelf = json.continuationContents?.musicShelfContinuation ?? {};
+  return { ...parseShelfItems(shelf.contents, prefix), continuation: shelfContinuation(shelf, shelf.contents) };
 }
 
 export function parseSuggestions(json: Json): string[] {
