@@ -4,18 +4,28 @@ import log from "electron-log";
 import IIntegration from "../integration";
 import spotifyCss from "./spotify.css?raw";
 
-// CSS can't tell a failed <img> apart from a loaded one, and Chromium draws its broken-image icon
-// for covers that fail while YTM switches tracks. Tag failed images so the theme can hide them over
-// a placeholder. Capture phase because image load/error events don't bubble.
-const brokenImageScript = `(() => {
-  if (window.__ytfBrokenImages) return;
-  window.__ytfBrokenImages = true;
+// Small page helpers the stylesheet relies on, installed once per document:
+// - CSS can't tell a failed <img> apart from a loaded one, and Chromium draws its broken-image icon
+//   for covers that fail while YTM switches tracks. Failed images get tagged so the theme can hide
+//   them over a placeholder. Capture phase because image load/error events don't bubble.
+// - YTM is a single-page app with no per-page marker, so <html ytf-page="..."> mirrors the current
+//   section ("home", "explore", "playlist", ...) for page-specific layouts like the home tile grid.
+const pageHelperScript = `(() => {
+  if (window.__ytfPageHelpers) return;
+  window.__ytfPageHelpers = true;
   document.addEventListener("error", e => {
     if (e.target instanceof HTMLImageElement) e.target.classList.add("ytf-img-broken");
   }, true);
   document.addEventListener("load", e => {
     if (e.target instanceof HTMLImageElement) e.target.classList.remove("ytf-img-broken");
   }, true);
+  const markPage = () => {
+    const section = location.pathname.split("/")[1] || "home";
+    if (document.documentElement.getAttribute("ytf-page") !== section) document.documentElement.setAttribute("ytf-page", section);
+  };
+  markPage();
+  window.navigation?.addEventListener("currententrychange", markPage);
+  setInterval(markPage, 1000);
 })();`;
 
 // Built-in Spotify-style layout for the YTM view. Unlike CustomCSS this ships with the app and
@@ -32,7 +42,7 @@ export default class SpotifyTheme implements IIntegration {
     this.documentGeneration++;
     this.cssKey = null;
     // Harmless with the theme off (nothing styles the class), so it's installed on every load.
-    this.ytmView?.webContents.executeJavaScript(brokenImageScript).catch(e => log.error("Failed to install broken image handler", e));
+    this.ytmView?.webContents.executeJavaScript(pageHelperScript).catch(e => log.error("Failed to install theme page helpers", e));
     if (this.isEnabled) this.injectCSS();
   };
 

@@ -431,7 +431,283 @@ ytmusic-carousel-shelf-renderer .navigation-button button {
   opacity: 0.85;
 }
 
-/* Mood / filter chips. */
+/* Fill the panel like Spotify. YTM caps the content column at 1478px and stretches cards to fit
+   that column; instead let it span the panel and keep cards at Spotify's size, so wide windows
+   show more cards per row. */
+ytmusic-app-layout {
+  --ytmusic-content-width: calc(100vw - var(--ytmusic-guide-width, 240px) - 80px) !important;
+}
+
+ytmusic-carousel {
+  --ytmusic-carousel-item-base-width: 188px !important;
+}
+
+/* Home: the first card shelf ("Listen again") becomes Spotify's grid of quick-access tiles.
+   <html ytf-page> is set by the theme's page helper script. */
+html[ytf-page="home"] ytmusic-section-list-renderer #contents > ytmusic-carousel-shelf-renderer:first-of-type:has(ytmusic-two-row-item-renderer) {
+  margin-top: 8px !important;
+}
+
+html[ytf-page="home"] ytmusic-section-list-renderer #contents > ytmusic-carousel-shelf-renderer:first-of-type:has(ytmusic-two-row-item-renderer) #header-group,
+html[ytf-page="home"]
+  ytmusic-section-list-renderer
+  #contents
+  > ytmusic-carousel-shelf-renderer:first-of-type:has(ytmusic-two-row-item-renderer)
+  ytmusic-carousel-shelf-basic-header-renderer {
+  display: none !important;
+}
+
+html[ytf-page="home"]
+  ytmusic-section-list-renderer
+  #contents
+  > ytmusic-carousel-shelf-renderer:first-of-type:has(ytmusic-two-row-item-renderer)
+  #items.ytmusic-carousel {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  grid-template-rows: none !important;
+  grid-auto-flow: row !important;
+  gap: 8px !important;
+  overflow: visible !important;
+  white-space: normal !important;
+  transform: none !important;
+}
+
+@media (max-width: 1100px) {
+  html[ytf-page="home"]
+    ytmusic-section-list-renderer
+    #contents
+    > ytmusic-carousel-shelf-renderer:first-of-type:has(ytmusic-two-row-item-renderer)
+    #items.ytmusic-carousel {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+html[ytf-page="home"]
+  ytmusic-section-list-renderer
+  #contents
+  > ytmusic-carousel-shelf-renderer:first-of-type:has(ytmusic-two-row-item-renderer)
+  ytmusic-two-row-item-renderer {
+  position: relative !important;
+  display: flex !important;
+  align-items: center;
+  width: auto !important;
+  height: 64px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden;
+  border-radius: 4px !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+  transition: background-color 0.2s;
+}
+
+html[ytf-page="home"]
+  ytmusic-section-list-renderer
+  #contents
+  > ytmusic-carousel-shelf-renderer:first-of-type:has(ytmusic-two-row-item-renderer)
+  ytmusic-two-row-item-renderer:hover {
+  background: rgba(255, 255, 255, 0.2) !important;
+}
+
+html[ytf-page="home"]
+  ytmusic-section-list-renderer
+  #contents
+  > ytmusic-carousel-shelf-renderer:first-of-type:has(ytmusic-two-row-item-renderer)
+  ytmusic-two-row-item-renderer:nth-child(n + 9) {
+  display: none !important;
+}
+
+/* Cover on the left. The wrapper is un-positioned so the play button can anchor to the tile, and
+   loses YTM's padding-top aspect-ratio trick, which would push the cover out of the 64px tile. */
+html[ytf-page="home"]
+  ytmusic-section-list-renderer
+  #contents
+  > ytmusic-carousel-shelf-renderer:first-of-type:has(ytmusic-two-row-item-renderer)
+  .image-wrapper {
+  position: static !important;
+  box-sizing: border-box;
+  padding: 0 !important;
+  flex: 0 0 64px;
+  width: 64px !important;
+  height: 64px !important;
+  border-radius: 0 !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+html[ytf-page="home"]
+  ytmusic-section-list-renderer
+  #contents
+  > ytmusic-carousel-shelf-renderer:first-of-type:has(ytmusic-two-row-item-renderer)
+  .image-wrapper
+  ytmusic-thumbnail-renderer,
+html[ytf-page="home"]
+  ytmusic-section-list-renderer
+  #contents
+  > ytmusic-carousel-shelf-renderer:first-of-type:has(ytmusic-two-row-item-renderer)
+  .image-wrapper
+  ytmusic-thumbnail-renderer
+  img {
+  position: static !important;
+  width: 64px !important;
+  height: 64px !important;
+  border-radius: 0 !important;
+  object-fit: cover;
+}
+
+html[ytf-page="home"]
+  ytmusic-section-list-renderer
+  #contents
+  > ytmusic-carousel-shelf-renderer:first-of-type:has(ytmusic-two-row-item-renderer)
+  .image-wrapper
+  #ripple,
+html[ytf-page="home"]
+  ytmusic-section-list-renderer
+  #contents
+  > ytmusic-carousel-shelf-renderer:first-of-type:has(ytmusic-two-row-item-renderer)
+  #thumbnail-corner-overlay,
+html[ytf-page="home"]
+  ytmusic-section-list-renderer
+  #contents
+  > ytmusic-carousel-shelf-renderer:first-of-type:has(ytmusic-two-row-item-renderer)
+  ytmusic-item-thumbnail-overlay-renderer
+  #background,
+html[ytf-page="home"]
+  ytmusic-section-list-renderer
+  #contents
+  > ytmusic-carousel-shelf-renderer:first-of-type:has(ytmusic-two-row-item-renderer)
+  ytmusic-item-thumbnail-overlay-renderer
+  .menu,
+html[ytf-page="home"]
+  ytmusic-section-list-renderer
+  #contents
+  > ytmusic-carousel-shelf-renderer:first-of-type:has(ytmusic-two-row-item-renderer)
+  .details
+  .subtitle,
+html[ytf-page="home"]
+  ytmusic-section-list-renderer
+  #contents
+  > ytmusic-carousel-shelf-renderer:first-of-type:has(ytmusic-two-row-item-renderer)
+  .details
+  .substring-group,
+html[ytf-page="home"]
+  ytmusic-section-list-renderer
+  #contents
+  > ytmusic-carousel-shelf-renderer:first-of-type:has(ytmusic-two-row-item-renderer)
+  .details
+  .third-title {
+  display: none !important;
+}
+
+/* The overlay spans the tile now; only its play button takes clicks so the title link still works. */
+html[ytf-page="home"]
+  ytmusic-section-list-renderer
+  #contents
+  > ytmusic-carousel-shelf-renderer:first-of-type:has(ytmusic-two-row-item-renderer)
+  ytmusic-item-thumbnail-overlay-renderer,
+html[ytf-page="home"]
+  ytmusic-section-list-renderer
+  #contents
+  > ytmusic-carousel-shelf-renderer:first-of-type:has(ytmusic-two-row-item-renderer)
+  ytmusic-item-thumbnail-overlay-renderer
+  #content {
+  position: static !important;
+  pointer-events: none;
+}
+
+html[ytf-page="home"]
+  ytmusic-section-list-renderer
+  #contents
+  > ytmusic-carousel-shelf-renderer:first-of-type:has(ytmusic-two-row-item-renderer)
+  ytmusic-play-button-renderer {
+  pointer-events: auto;
+  inset: 50% 8px auto auto !important;
+  width: 32px !important;
+  height: 32px !important;
+  margin-top: -16px !important;
+}
+
+html[ytf-page="home"]
+  ytmusic-section-list-renderer
+  #contents
+  > ytmusic-carousel-shelf-renderer:first-of-type:has(ytmusic-two-row-item-renderer)
+  ytmusic-play-button-renderer
+  .icon,
+html[ytf-page="home"]
+  ytmusic-section-list-renderer
+  #contents
+  > ytmusic-carousel-shelf-renderer:first-of-type:has(ytmusic-two-row-item-renderer)
+  ytmusic-play-button-renderer
+  .icon
+  .yt-icon-shape,
+html[ytf-page="home"]
+  ytmusic-section-list-renderer
+  #contents
+  > ytmusic-carousel-shelf-renderer:first-of-type:has(ytmusic-two-row-item-renderer)
+  ytmusic-play-button-renderer
+  .icon
+  .yt-icon-shape
+  > div,
+html[ytf-page="home"]
+  ytmusic-section-list-renderer
+  #contents
+  > ytmusic-carousel-shelf-renderer:first-of-type:has(ytmusic-two-row-item-renderer)
+  ytmusic-play-button-renderer
+  .icon
+  svg {
+  width: 16px !important;
+  height: 16px !important;
+}
+
+html[ytf-page="home"] ytmusic-section-list-renderer #contents > ytmusic-carousel-shelf-renderer:first-of-type:has(ytmusic-two-row-item-renderer) .details {
+  flex: 1 1 auto;
+  /* YTM centres text under round artist pictures */
+  text-align: left !important;
+  align-items: flex-start !important;
+  min-width: 0;
+  margin: 0 !important;
+  padding: 0 48px 0 12px !important;
+}
+
+html[ytf-page="home"]
+  ytmusic-section-list-renderer
+  #contents
+  > ytmusic-carousel-shelf-renderer:first-of-type:has(ytmusic-two-row-item-renderer)
+  .details
+  .title-group {
+  margin: 0 !important;
+}
+
+html[ytf-page="home"]
+  ytmusic-section-list-renderer
+  #contents
+  > ytmusic-carousel-shelf-renderer:first-of-type:has(ytmusic-two-row-item-renderer)
+  .details
+  .title,
+html[ytf-page="home"]
+  ytmusic-section-list-renderer
+  #contents
+  > ytmusic-carousel-shelf-renderer:first-of-type:has(ytmusic-two-row-item-renderer)
+  .details
+  .title
+  a {
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  line-height: 1.3 !important;
+  white-space: normal !important;
+  display: -webkit-box !important;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Mood / filter chips. YTM pages them with its own arrows, so the scrollbar under them is hidden. */
+ytmusic-chip-cloud-renderer #chips {
+  scrollbar-width: none !important;
+}
+
+ytmusic-chip-cloud-renderer #chips::-webkit-scrollbar {
+  display: none;
+}
+
 ytmusic-chip-cloud-chip-renderer a,
 ytmusic-chip-cloud-chip-renderer .gradient-box {
   border-radius: 500px !important;
