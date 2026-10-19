@@ -1,7 +1,7 @@
 {
   "name": "youtubify",
   "productName": "Youtubify",
-  "version": "2.0.12",
+  "version": "2.1.0",
   "description": "YouTube Music desktop app with a Spotify-style layout (fork of ytmdesktop)",
   "main": ".vite/main/index.js",
   "private": true,
