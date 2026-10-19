@@ -4,7 +4,10 @@ import { computed, ref, watch } from "vue";
 import * as player from "../state/player";
 import { playlists } from "../state/library";
 import { navigate } from "../state/router";
-import { getArtist } from "../ytm/client";
+import { getArtist, getLyrics } from "../ytm/client";
+import { isLiked, toggleLiked } from "../state/likes";
+import { openMenu } from "../state/menu";
+import { trackMenu } from "../menus";
 import type { ArtistPage } from "../ytm/models";
 import Cover from "./Cover.vue";
 import Icon from "./Icon.vue";
@@ -12,7 +15,23 @@ import Icon from "./Icon.vue";
 const props = defineProps<{ mode: "nowplaying" | "queue" }>();
 const emit = defineEmits<{ (e: "close"): void; (e: "mode", mode: "nowplaying" | "queue"): void }>();
 
-const { track, liked, upNext, queueItems, queueIndex } = player;
+const { track, upNext, queueItems, queueIndex } = player;
+const liked = computed(() => isLiked(track.value?.id, player.liked.value));
+const like = () => track.value && toggleLiked(track.value.id, player.liked.value);
+const onMenu = (e: MouseEvent) => player.currentAsTrack.value && openMenu(e, trackMenu(player.currentAsTrack.value));
+
+// Spotify's lyrics card: a preview of the first lines
+const lyricsPreview = ref<string[]>([]);
+watch(
+  () => track.value?.id,
+  async id => {
+    lyricsPreview.value = [];
+    if (!id) return;
+    const lyrics = await getLyrics(id).catch(() => null);
+    if (track.value?.id === id) lyricsPreview.value = (lyrics?.lines ?? []).filter(l => l.trim()).slice(0, 6);
+  },
+  { immediate: true }
+);
 
 // Context name: a library playlist if we know it, otherwise generic like Spotify's "Now playing"
 const contextName = computed(() => {
@@ -58,19 +77,14 @@ const current = computed(() => queueItems.value[queueIndex.value]);
 
     <div v-else-if="props.mode === 'nowplaying'" class="scroll">
       <Cover :thumbs="track.thumbnails" :size="400" :radius="8" class="hero" />
-      <div class="track">
+      <div class="track" @contextmenu="onMenu">
         <div class="names">
           <div class="title ytf-ellipsis" :class="{ 'ytf-link': track.albumId }" @click="track.albumId && navigate({ name: 'collection', id: track.albumId })">
             {{ track.title }}
           </div>
           <div class="artist ytf-ellipsis ytf-link" @click="navigate({ name: 'artist', id: track.channelId })">{{ track.author }}</div>
         </div>
-        <button
-          class="ytf-icon-button"
-          :class="{ active: liked }"
-          :aria-label="liked ? 'Remove from Liked Songs' : 'Save to Liked Songs'"
-          @click="player.toggleLike()"
-        >
+        <button class="ytf-icon-button" :class="{ active: liked }" :aria-label="liked ? 'Remove from Liked Songs' : 'Save to Liked Songs'" @click="like">
           <Icon :name="liked ? 'check-circle' : 'plus-circle'" :size="24" />
         </button>
       </div>
@@ -87,6 +101,14 @@ const current = computed(() => queueItems.value[queueIndex.value]);
           <div v-if="artist.subscribers" class="about-meta">{{ artist.subscribers }}</div>
           <p v-if="artist.description" class="about-desc">{{ artist.description }}</p>
         </div>
+      </section>
+
+      <section v-if="lyricsPreview.length" class="card lyrics">
+        <div class="lyrics-head">
+          <span>Lyrics</span>
+          <button class="open-queue" @click="navigate({ name: 'lyrics' })">Show lyrics</button>
+        </div>
+        <p v-for="(line, i) in lyricsPreview" :key="i">{{ line }}</p>
       </section>
 
       <section v-if="nextItem" class="card next">
@@ -253,6 +275,25 @@ h2 {
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+.lyrics {
+  padding: 16px;
+  background: linear-gradient(160deg, #6b4b8a, #3b2a55);
+}
+
+.lyrics-head {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  font-weight: 700;
+}
+
+.lyrics p {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.5;
 }
 
 .next {

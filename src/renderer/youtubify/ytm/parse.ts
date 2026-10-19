@@ -15,6 +15,7 @@ import type {
   HomePage,
   PageType,
   PlayEndpoint,
+  PlaylistOption,
   SearchPage,
   Shelf,
   Thumb,
@@ -141,6 +142,18 @@ const columnRuns = (r: Json): Json[][] => (r.flexColumns ?? []).map((c: Json) =>
 
 const durationPattern = /^\d{1,2}(:\d{2}){1,2}$/;
 
+// Rows carry a like button in their menu with the user's current rating
+const likeStatusOf = (r: Json): boolean | undefined => {
+  const status = findKey(r.menu, "likeButtonRenderer")?.likeStatus;
+  return status === undefined ? undefined : status === "LIKE";
+};
+
+/** True when a row's menu can remove it from the given playlist, i.e. the user owns that playlist. */
+const canRemoveFrom = (r: Json, playlistId: string): boolean =>
+  findAll(r.menu, "playlistEditEndpoint").some(
+    (e: Json) => e.playlistId === playlistId && (e.actions ?? []).some((a: Json) => a.action === "ACTION_REMOVE_VIDEO")
+  );
+
 /** A list row is either a playable track or a browsable item (artist/album/playlist) shown as a card. */
 export function parseListItem(r: Json, key: string, fallbackArtists: ArtistRef[] = []): { track?: Track; card?: Card } {
   const cols = columnRuns(r);
@@ -199,7 +212,9 @@ export function parseListItem(r: Json, key: string, fallbackArtists: ArtistRef[]
       thumbs,
       explicit: findAll(r.badges, "musicInlineBadgeRenderer").some((b: Json) => b?.icon?.iconType === "MUSIC_EXPLICIT_BADGE"),
       detail: isSearchStyle ? restText : "",
-      play
+      play,
+      liked: likeStatusOf(r),
+      setVideoId: r.playlistItemData?.playlistSetVideoId
     }
   };
 }
@@ -293,6 +308,10 @@ export function parseCollection(json: Json, id: string): CollectionPage {
   const ownerName = facepile?.text?.content ?? text(header.straplineTextOne);
   const ownerBrowse = facepile?.rendererContext?.commandContext?.onTap?.innertubeCommand?.browseEndpoint?.browseId;
   const playButton = (header.buttons ?? []).find((b: Json) => b.musicPlayButtonRenderer)?.musicPlayButtonRenderer;
+  const playEndpoint = playOf(playButton?.playNavigationEndpoint) as Json;
+  // Albums play from their OLAK… audio playlist; playlists are their browse id without "VL"
+  const playlistId: string | undefined =
+    playEndpoint?.watchEndpoint?.playlistId ?? playEndpoint?.watchPlaylistEndpoint?.playlistId ?? (id.startsWith("VL") ? id.slice(2) : undefined);
   const { tracks } = parseShelfItems(listShelf.contents, `col-${id}`, albumArtists);
   // Album rows have no artwork of their own
   const thumbs = thumbsOf(header.thumbnail);
@@ -315,6 +334,12 @@ export function parseCollection(json: Json, id: string): CollectionPage {
     tracks,
     continuation: continuationToken(listShelf.contents),
     play: playOf(playButton?.playNavigationEndpoint),
+    playlistId,
+    saved: !!(header.buttons ?? []).find((b: Json) => b.toggleButtonRenderer)?.toggleButtonRenderer?.isToggled,
+    editable:
+      !!findKey(json, "musicEditablePlaylistDetailHeaderRenderer") ||
+      (!!playlistId &&
+        (listShelf.contents ?? []).some((c: Json) => c.musicResponsiveListItemRenderer && canRemoveFrom(c.musicResponsiveListItemRenderer, playlistId))),
     more: parseSections(moreSections, `more-${id}`)
   };
 }
@@ -344,7 +369,9 @@ export function parseArtist(json: Json, id: string): ArtistPage {
       `artist-${id}`
     ),
     shuffle: playOf(header.playButton?.buttonRenderer?.navigationEndpoint),
-    radio: playOf(header.startRadioButton?.buttonRenderer?.navigationEndpoint)
+    radio: playOf(header.startRadioButton?.buttonRenderer?.navigationEndpoint),
+    channelId: header.subscriptionButton?.subscribeButtonRenderer?.channelId ?? id,
+    subscribed: !!header.subscriptionButton?.subscribeButtonRenderer?.subscribed
   };
 }
 
@@ -446,4 +473,29 @@ export function parseLibraryGrid(json: Json, prefix: string): Card[] {
     .filter((c): c is Card => !!c);
   // The grid starts with a "New playlist" tile that has no browse target
   return [...twoRow, ...rows].filter(c => c.browse);
+}
+
+/** Playlists offered by YTM's "Save to playlist" dialog for a song (only ones the user can edit). */
+export function parseAddToPlaylist(json: Json): PlaylistOption[] {
+  return findAll(json, "playlistAddToOptionRenderer").map((o: Json) => ({
+    playlistId: o.playlistId,
+    title: text(o.title),
+    thumbs: thumbsOf(o.thumbnail),
+    containsSong: o.containsSelectedVideos === "ALL"
+  }));
+}
+
+/** Plain lyrics from a YTM lyrics page (browse MPLY…), with the provider credit. */
+export function parseLyrics(json: Json): { lines: string[]; source: string } | null {
+  const shelf = findKey(json.contents, "musicDescriptionShelfRenderer");
+  const body = text(shelf?.description);
+  if (!body) return null;
+  return { lines: body.split(/\r?\n/), source: text(shelf?.footer) };
+}
+
+/** The lyrics page id for a song, from the "next" (watch panel) response's Lyrics tab. */
+export function lyricsBrowseId(nextJson: Json): string | undefined {
+  return findAll(nextJson, "browseEndpoint")
+    .map((b: Json) => b.browseId)
+    .find((id: unknown) => typeof id === "string" && id.startsWith("MPLY"));
 }

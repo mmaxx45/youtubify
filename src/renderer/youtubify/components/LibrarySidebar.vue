@@ -7,6 +7,8 @@ import { navigate, open, route } from "../state/router";
 import { createPlaylist } from "../ytm/client";
 import { session, signIn } from "../state/session";
 import { isPlaying, playlistId } from "../state/player";
+import { openMenu } from "../state/menu";
+import { cardMenu } from "../menus";
 import Cover from "./Cover.vue";
 import Icon from "./Icon.vue";
 
@@ -130,7 +132,13 @@ async function startSearch() {
 
     <ul class="items">
       <li v-for="c in items" :key="c.key">
-        <button class="item" :class="{ active: isActive(c) }" :title="props.collapsed ? c.title : undefined" @click="open(c.browse)">
+        <button
+          class="item"
+          :class="{ active: isActive(c) }"
+          :title="props.collapsed ? c.title : undefined"
+          @click="open(c.browse)"
+          @contextmenu="openMenu($event, cardMenu(c))"
+        >
           <Cover :thumbs="c.thumbs" :size="48" :round="c.kind === 'artist'" :liked="isLiked(c)" />
           <span v-if="!props.collapsed" class="text">
             <span class="name ytf-ellipsis" :class="{ playing: isPlayingFrom(c) }">{{ c.title }}</span>

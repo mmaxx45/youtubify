@@ -12,6 +12,7 @@ declare global {
       command(command: string, value?: unknown): void;
       getPlayerState(): Promise<unknown>;
       onPlayerState(callback: (state: unknown) => void): () => void;
+      queueAdd(target: { videoId?: string; playlistId?: string; next?: boolean }): Promise<boolean>;
       getSession(): Promise<{ loggedIn: boolean; name?: string; avatar?: string } | null>;
       signIn(): void;
       closeYtmView(): void;

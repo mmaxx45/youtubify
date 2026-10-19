@@ -48,6 +48,10 @@ export interface Track {
   // Extra line from search/queue results (e.g. "Video • 12M views"); empty for plain lists.
   detail: string;
   play: PlayEndpoint;
+  // YTM like status when the response included it (undefined = unknown)
+  liked?: boolean;
+  // Identifies this entry inside its playlist (needed to remove it)
+  setVideoId?: string;
 }
 
 export interface Shelf {
@@ -85,6 +89,12 @@ export interface CollectionPage {
   continuation?: string;
   play?: PlayEndpoint;
   more: Shelf[];
+  // Plain playlist id (no VL prefix) used to save/edit it
+  playlistId?: string;
+  // In the user's library (header bookmark toggled)
+  saved: boolean;
+  // The user can add/remove songs (their own playlist)
+  editable: boolean;
 }
 
 export interface ArtistPage {
@@ -98,6 +108,8 @@ export interface ArtistPage {
   shelves: Shelf[];
   shuffle?: PlayEndpoint;
   radio?: PlayEndpoint;
+  channelId: string;
+  subscribed: boolean;
 }
 
 export interface SearchTop {
@@ -135,4 +147,12 @@ export interface CategoryPage {
 
 export interface LibraryItem extends Card {
   pinned?: boolean;
+}
+
+/** A playlist the current song can be added to (from YTM's add-to-playlist dialog data). */
+export interface PlaylistOption {
+  playlistId: string;
+  title: string;
+  thumbs: Thumb[];
+  containsSong: boolean;
 }

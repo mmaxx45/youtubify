@@ -7,6 +7,8 @@ import { pickThumb } from "../ytm/parse";
 import { averageColor } from "../format";
 import { open } from "../state/router";
 import { isPlaying, playlistId, togglePlay } from "../state/player";
+import { openMenu } from "../state/menu";
+import { cardMenu } from "../menus";
 import Cover from "../components/Cover.vue";
 import Icon from "../components/Icon.vue";
 import Shelf from "../components/Shelf.vue";
@@ -116,6 +118,7 @@ const selectedChip = computed(() => props.chip);
             @click="openTile(c)"
             @keydown.enter="openTile(c)"
             @mouseenter="hoverTile(c)"
+            @contextmenu="openMenu($event, cardMenu(c))"
           >
             <Cover :thumbs="c.thumbs" :size="48" :radius="0" :round="false" :liked="c.browse?.browseId === 'VLLM'" />
             <span class="tile-title ytf-clamp-2" :class="{ playing: tileCurrent(c) }">{{ c.title }}</span>

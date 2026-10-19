@@ -2,7 +2,10 @@
 // Spotify's "now playing bar": track info left, transport + progress centre, volume/panels right.
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import * as player from "../state/player";
-import { navigate } from "../state/router";
+import { back, navigate, route } from "../state/router";
+import { isLiked, toggleLiked } from "../state/likes";
+import { openMenu } from "../state/menu";
+import { trackMenu } from "../menus";
 import { formatTime } from "../format";
 import Cover from "./Cover.vue";
 import Icon from "./Icon.vue";
@@ -11,7 +14,13 @@ import Slider from "./Slider.vue";
 const props = defineProps<{ rightPanel: "nowplaying" | "queue" | null }>();
 const emit = defineEmits<{ (e: "toggle-panel", panel: "nowplaying" | "queue"): void }>();
 
-const { track, isPlaying, duration, progress, volume, muted, repeatMode, liked, shuffled } = player;
+const { track, isPlaying, duration, progress, volume, muted, repeatMode, shuffled } = player;
+// Our own like store wins over YTM's status, which isn't refreshed when liking through the API
+const liked = computed(() => isLiked(track.value?.id, player.liked.value));
+const like = () => track.value && toggleLiked(track.value.id, player.liked.value);
+const onMenu = (e: MouseEvent) => player.currentAsTrack.value && openMenu(e, trackMenu(player.currentAsTrack.value));
+const lyricsOpen = computed(() => route.value.name === "lyrics");
+const toggleLyrics = () => (lyricsOpen.value ? back() : navigate({ name: "lyrics" }));
 const previewTime = ref<number | null>(null);
 const shownTime = computed(() => previewTime.value ?? progress.value);
 
@@ -36,7 +45,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKey));
         <button class="art" aria-label="Now playing view" @click="emit('toggle-panel', 'nowplaying')">
           <Cover :thumbs="track.thumbnails" :size="56" />
         </button>
-        <div class="meta">
+        <div class="meta" @contextmenu="onMenu">
           <span
             class="title ytf-ellipsis"
             :class="{ 'ytf-link': track.albumId }"
@@ -55,7 +64,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKey));
           :class="{ active: liked }"
           :aria-label="liked ? 'Remove from Liked Songs' : 'Save to Liked Songs'"
           :title="liked ? 'Remove from Liked Songs' : 'Save to Liked Songs'"
-          @click="player.toggleLike()"
+          @click="like"
         >
           <Icon :name="liked ? 'check-circle' : 'plus-circle'" :size="16" />
         </button>
@@ -103,6 +112,9 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKey));
     </div>
 
     <div class="right">
+      <button class="ytf-icon-button" :class="{ active: lyricsOpen }" title="Lyrics" aria-label="Lyrics" :disabled="!track" @click="toggleLyrics">
+        <Icon name="mic" :size="16" />
+      </button>
       <button
         class="ytf-icon-button"
         :class="{ active: props.rightPanel === 'nowplaying' }"

@@ -1,8 +1,12 @@
 <script setup lang="ts">
 // Spotify's playlist/album page: tinted header, action bar, track table.
 import { computed, ref, watch } from "vue";
-import type { CollectionPage } from "../ytm/models";
-import { getCollection, getCollectionMore, play, playlistIdOf } from "../ytm/client";
+import type { CollectionPage, Track } from "../ytm/models";
+import { getCollection, getCollectionMore, play, playlistIdOf, savePlaylist } from "../ytm/client";
+import { openMenuAt } from "../state/menu";
+import { collectionMenu } from "../menus";
+import { refreshLibrary } from "../state/library";
+import { toast } from "../state/toast";
 import { pickThumb } from "../ytm/parse";
 import { averageColor } from "../format";
 import { navigate } from "../state/router";
@@ -51,6 +55,35 @@ const titleSize = computed(() => {
 function onPlay() {
   if (isCurrent.value) togglePlay();
   else if (page.value?.play) play(page.value.play);
+}
+
+// Spotify's "Save to Your Library" circle; Liked Songs and your own playlists are always there
+const canSave = computed(() => !!page.value?.playlistId && props.id !== "VLLM" && !page.value.editable);
+async function toggleSaved() {
+  const p = page.value;
+  if (!p?.playlistId) return;
+  const save = !p.saved;
+  p.saved = save;
+  try {
+    await savePlaylist(p.playlistId, save);
+    toast(save ? "Saved to Your Library" : "Removed from Your Library");
+    refreshLibrary();
+  } catch {
+    p.saved = !save;
+    toast("Couldn't update Your Library");
+  }
+}
+
+function openMore(e: MouseEvent) {
+  if (page.value)
+    openMenuAt(
+      e.currentTarget as HTMLElement,
+      collectionMenu(page.value, saved => page.value && (page.value.saved = saved))
+    );
+}
+
+function onRemoved(track: Track) {
+  if (page.value) page.value.tracks = page.value.tracks.filter(t => t.key !== track.key);
 }
 
 function onShuffle() {
@@ -124,6 +157,19 @@ async function onScroll() {
           <button class="ytf-icon-button action" title="Shuffle" aria-label="Shuffle" :disabled="!page?.play" @click="onShuffle">
             <Icon name="shuffle" :size="32" />
           </button>
+          <button
+            v-if="canSave"
+            class="ytf-icon-button action"
+            :class="{ active: page?.saved }"
+            :title="page?.saved ? 'Remove from Your Library' : 'Save to Your Library'"
+            :aria-label="page?.saved ? 'Remove from Your Library' : 'Save to Your Library'"
+            @click="toggleSaved"
+          >
+            <Icon :name="page?.saved ? 'check-circle' : 'plus-circle'" :size="32" />
+          </button>
+          <button v-if="page" class="ytf-icon-button action" :title="`More options for ${page.title}`" aria-label="More options" @click="openMore">
+            <Icon name="more" :size="32" />
+          </button>
         </div>
 
         <div class="tracks">
@@ -133,7 +179,9 @@ async function onScroll() {
             :list-playlist-id="listId"
             :show-album="page.kind === 'playlist'"
             :show-cover="page.kind === 'playlist'"
+            :editable-playlist-id="page.editable ? page.playlistId : undefined"
             show-header
+            @removed="onRemoved"
           />
           <div v-else class="loading">
             <div v-for="i in 8" :key="i" class="row-skeleton ytf-skeleton" />

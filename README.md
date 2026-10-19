@@ -26,7 +26,13 @@ panel on the right and the player bar at the bottom.
 - **Search** – live suggestions while you type, a Top result next to Songs, and rows of artists, albums and playlists.
   With an empty search box you get recent searches and "Browse all" mood and genre tiles.
 - **Now Playing panel and queue** – big artwork, "About the artist", what's next, and the full queue to jump around in.
-- **Player bar** – play/pause, previous/next, seeking, volume, shuffle, repeat and saving the current song.
+- **Player bar** – play/pause, previous/next, seeking, volume, shuffle, repeat, saving the current song and lyrics.
+- **Liked Songs everywhere** – every song row shows Spotify's green check when it's liked and a + to save it.
+- **Right-click menus** – songs: Add to playlist (with "Find a playlist" and New playlist), Remove from this playlist
+  (your own playlists), Save to / Remove from your Liked Songs, Add to queue, Go to song radio, Go to artist, Go to album
+  and Share. Playlists, albums and artists get Add to queue, Save to / Remove from Your Library, Follow and Share.
+- **Follow artists** – Spotify's Follow / Following button on artist pages (a YouTube subscription under the hood).
+- **Lyrics** – a full lyrics view from the player bar's microphone button and a lyrics card in the Now Playing panel.
 - **A loading screen** where the equalizer stripes form the logo before the app appears.
 
 Everything comes from your own YouTube Music account, including your library, recommendations and likes.

@@ -12,6 +12,9 @@ import CollectionView from "./views/CollectionView.vue";
 import ArtistView from "./views/ArtistView.vue";
 import SearchView from "./views/SearchView.vue";
 import CategoryView from "./views/CategoryView.vue";
+import LyricsView from "./views/LyricsView.vue";
+import ContextMenu from "./components/ContextMenu.vue";
+import Toast from "./components/Toast.vue";
 import { navigate, route } from "./state/router";
 import { startPlayerSync, track } from "./state/player";
 import { refreshLibrary } from "./state/library";
@@ -115,6 +118,7 @@ function onChip(params?: string) {
           <SearchView v-else-if="route.name === 'search'" key="search" :query="route.query" />
           <CategoryView v-else-if="route.name === 'category'" :id="route.id" :key="`cat-${route.params}`" :params="route.params" :title="route.title" />
         </KeepAlive>
+        <LyricsView v-if="route.name === 'lyrics'" />
       </template>
     </main>
 
@@ -122,6 +126,8 @@ function onChip(params?: string) {
     <div v-if="showRight" class="resize right" :style="{ right: `${rightWidth + 8}px` }" @pointerdown="startResize('right', $event)" />
 
     <PlayerBar :right-panel="showRight ? rightPanel : null" @toggle-panel="togglePanel" />
+    <ContextMenu />
+    <Toast />
 
     <div v-if="showLoading" class="loading-overlay">
       <Suspense>

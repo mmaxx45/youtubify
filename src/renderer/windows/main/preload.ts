@@ -35,6 +35,7 @@ contextBridge.exposeInMainWorld("ytf", {
   command: (command: string, value?: unknown) => ipcRenderer.send("ytf:command", command, value),
   getPlayerState: () => ipcRenderer.invoke("ytf:getPlayerState"),
   getSession: () => ipcRenderer.invoke("ytf:session"),
+  queueAdd: (target: unknown) => ipcRenderer.invoke("ytf:queueAdd", target),
   signIn: () => ipcRenderer.send("ytf:signIn"),
   closeYtmView: () => ipcRenderer.send("ytf:closeYtmView"),
   onYtmVisible: (callback: (visible: boolean) => void) => ipcRenderer.on("ytf:ytmVisible", (_event, visible: boolean) => callback(visible)),

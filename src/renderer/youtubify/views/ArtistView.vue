@@ -6,6 +6,9 @@ import { getArtist, play } from "../ytm/client";
 import { pickThumb } from "../ytm/parse";
 import { averageColor } from "../format";
 import { navigate, routeFor } from "../state/router";
+import { isFollowing, seedFollow, setFollowing } from "../state/follows";
+import { openMenuAt } from "../state/menu";
+import { artistMenu } from "../menus";
 import Icon from "../components/Icon.vue";
 import Shelf from "../components/Shelf.vue";
 import TrackList from "../components/TrackList.vue";
@@ -28,6 +31,7 @@ async function load() {
     const p = await getArtist(id);
     if (id !== props.id) return;
     page.value = p;
+    seedFollow(p.channelId, p.subscribed);
     averageColor(pickThumb(p.thumbs, 200)).then(c => c && props.id === id && (tint.value = c));
   } catch (e) {
     error.value = e instanceof Error ? e.message : String(e);
@@ -39,6 +43,9 @@ const banner = computed(() => (page.value ? pickThumb(page.value.thumbs, 1440) :
 const nameSize = computed(() => ((page.value?.name.length ?? 0) <= 16 ? 96 : 64));
 const songs = computed(() => (page.value ? page.value.topSongs.slice(0, showAll.value ? 10 : 5) : []));
 const seeMoreRoute = computed(() => routeFor(page.value?.topSongsMore));
+
+const following = computed(() => !!page.value && isFollowing(page.value.channelId));
+const openMore = (e: MouseEvent) => page.value && openMenuAt(e.currentTarget as HTMLElement, artistMenu(page.value));
 
 function playArtist() {
   const endpoint = page.value?.shuffle ?? page.value?.radio;
@@ -70,6 +77,12 @@ function playArtist() {
           </button>
           <button v-if="page?.radio" class="ytf-icon-button action" title="Start radio" aria-label="Start radio" @click="play(page.radio)">
             <Icon name="radio" :size="32" />
+          </button>
+          <button v-if="page" class="follow" :class="{ following: following }" @click="setFollowing(page.channelId, !following)">
+            {{ following ? "Following" : "Follow" }}
+          </button>
+          <button v-if="page" class="ytf-icon-button action" title="More options" aria-label="More options" @click="openMore">
+            <Icon name="more" :size="32" />
           </button>
         </div>
 
@@ -164,6 +177,28 @@ h1 {
   align-items: center;
   gap: 24px;
   padding: 24px 0;
+}
+
+/* Spotify's outlined Follow pill */
+.follow {
+  height: 32px;
+  padding: 0 15px;
+  border: 1px solid var(--essential-subdued);
+  border-radius: 9999px;
+  font-size: 14px;
+  font-weight: 700;
+  transition:
+    border-color 0.1s,
+    transform 0.1s;
+}
+
+.follow:hover {
+  border-color: var(--text-base);
+  transform: scale(1.04);
+}
+
+.follow.following {
+  border-color: var(--essential-subdued);
 }
 
 .action {

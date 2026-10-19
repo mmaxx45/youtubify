@@ -132,6 +132,18 @@ export function setupYtmBridge({ getMainWindow, getYtmView, isEnabled, topOffset
     contents.send("remoteControl:execute", command, value);
   });
 
+  ipcMain.handle("ytf:queueAdd", async (event, target: unknown) => {
+    if (!fromMainWindow(event.sender)) throw new Error("ytf:queueAdd is only available to the main window");
+    const t = target as { videoId?: unknown; playlistId?: unknown; next?: unknown } | null;
+    const id = (v: unknown) => (typeof v === "string" && /^[\w-]+$/.test(v) ? v : undefined);
+    const arg = { videoId: id(t?.videoId), playlistId: id(t?.playlistId), next: t?.next === true };
+    if (!arg.videoId && !arg.playlistId) throw new Error("queueAdd needs a videoId or playlistId");
+    const contents = getYtmView()?.webContents;
+    if (!contents) throw new Error("YouTube Music is not loaded");
+    await contents.executeJavaScript(innertubeScript, true);
+    return contents.executeJavaScript(`window.__ytfQueueAdd(${JSON.stringify(arg)})`, true);
+  });
+
   ipcMain.on("ytf:signIn", event => {
     if (!fromMainWindow(event.sender)) return;
     getYtmView()?.webContents.loadURL(SIGN_IN_URL);

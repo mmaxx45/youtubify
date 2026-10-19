@@ -1,11 +1,14 @@
 <script setup lang="ts">
 // Spotify's track table: #, title (cover + artists), album, duration. Double-click or the hover
 // play button starts the track inside its list so the rest of the list becomes the queue.
-import { computed } from "vue";
+import { computed, watch } from "vue";
 import type { Track } from "../ytm/models";
 import { isPlaying, togglePlay, track as current } from "../state/player";
 import { navigate } from "../state/router";
 import { playTrackInList } from "../ytm/client";
+import { isLiked, seedLikes, toggleLiked } from "../state/likes";
+import { openMenu, openMenuAt } from "../state/menu";
+import { trackMenu } from "../menus";
 import Cover from "./Cover.vue";
 import Icon from "./Icon.vue";
 
@@ -19,11 +22,22 @@ const props = withDefaults(
     showIndex?: boolean;
     compact?: boolean;
     columns?: number;
+    // Set when the list is a playlist the user owns, enabling "Remove from this playlist"
+    editablePlaylistId?: string;
   }>(),
-  { listPlaylistId: undefined, showAlbum: true, showCover: true, showHeader: false, showIndex: true, compact: false, columns: 1 }
+  { listPlaylistId: undefined, editablePlaylistId: undefined, showAlbum: true, showCover: true, showHeader: false, showIndex: true, compact: false, columns: 1 }
 );
 
+const emit = defineEmits<{ (e: "removed", track: Track): void }>();
+
 const isCurrent = (t: Track) => current.value?.id === t.videoId;
+const liked = (t: Track) => isLiked(t.videoId, t.liked ?? false);
+
+watch(() => props.tracks, seedLikes, { immediate: true });
+
+const openMore = (e: MouseEvent, t: Track) => openMenuAt(e.currentTarget as HTMLElement, menuFor(t));
+
+const menuFor = (t: Track) => trackMenu(t, { editablePlaylistId: props.editablePlaylistId, onRemoved: removed => emit("removed", removed) });
 
 function playRow(t: Track, i: number) {
   if (isCurrent(t)) togglePlay();
@@ -41,7 +55,15 @@ const gridStyle = computed(() => (props.columns > 1 ? { gridTemplateColumns: `re
       <span class="album">Album</span>
       <span class="dur"><Icon name="clock" :size="16" /></span>
     </div>
-    <div v-for="(t, i) in tracks" :key="t.key" class="row" :class="{ current: isCurrent(t) }" role="row" @dblclick="playRow(t, i)">
+    <div
+      v-for="(t, i) in tracks"
+      :key="t.key"
+      class="row"
+      :class="{ current: isCurrent(t) }"
+      role="row"
+      @dblclick="playRow(t, i)"
+      @contextmenu="openMenu($event, menuFor(t))"
+    >
       <span class="idx">
         <span class="num">
           <span v-if="isCurrent(t) && isPlaying" class="eq"><i /><i /><i /><i /></span>
@@ -77,7 +99,21 @@ const gridStyle = computed(() => (props.columns > 1 ? { gridTemplateColumns: `re
           >{{ t.album.name }}</span
         >
       </span>
-      <span class="dur">{{ t.duration }}</span>
+      <span class="dur">
+        <button
+          class="like"
+          :class="{ on: liked(t) }"
+          :aria-label="liked(t) ? 'Remove from Liked Songs' : 'Save to Liked Songs'"
+          :title="liked(t) ? 'Remove from Liked Songs' : 'Save to Liked Songs'"
+          @click.stop="toggleLiked(t.videoId, t.liked ?? false)"
+        >
+          <Icon :name="liked(t) ? 'check-circle' : 'plus-circle'" :size="16" />
+        </button>
+        <span class="time">{{ t.duration }}</span>
+        <button class="more" :aria-label="`More options for ${t.title}`" title="More options" @click.stop="openMore($event, t)">
+          <Icon name="more" :size="16" />
+        </button>
+      </span>
     </div>
   </div>
 </template>
@@ -224,8 +260,48 @@ const gridStyle = computed(() => (props.columns > 1 ? { gridTemplateColumns: `re
 }
 
 .dur {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
   justify-self: end;
   font-variant-numeric: tabular-nums;
+}
+
+.head .dur {
+  padding-right: 28px;
+}
+
+.time {
+  min-width: 36px;
+  text-align: right;
+}
+
+/* Spotify's like button: plus on hover, green check once saved */
+.like,
+.more {
+  display: flex;
+  color: var(--text-subdued);
+  opacity: 0;
+  transition: transform 0.1s;
+}
+
+.like:hover,
+.more:hover {
+  color: var(--text-base);
+  transform: scale(1.04);
+}
+
+.like.on {
+  opacity: 1;
+  color: var(--essential-bright-accent);
+}
+
+.row:hover .like,
+.row:hover .more,
+.row:focus-within .like,
+.row:focus-within .more {
+  opacity: 1;
 }
 
 /* Spotify's animated equalizer for the playing row */

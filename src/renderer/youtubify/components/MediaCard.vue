@@ -5,6 +5,8 @@ import type { Card } from "../ytm/models";
 import { open } from "../state/router";
 import { isPlaying, playlistId, togglePlay } from "../state/player";
 import { play } from "../ytm/client";
+import { openMenu } from "../state/menu";
+import { cardMenu } from "../menus";
 import Cover from "./Cover.vue";
 import Icon from "./Icon.vue";
 
@@ -33,7 +35,15 @@ function onOpen() {
 </script>
 
 <template>
-  <div class="card" :class="{ wide: card.wide }" role="button" tabindex="0" @click="onOpen" @keydown.enter="onOpen">
+  <div
+    class="card"
+    :class="{ wide: card.wide }"
+    role="button"
+    tabindex="0"
+    @click="onOpen"
+    @keydown.enter="onOpen"
+    @contextmenu="openMenu($event, cardMenu(card))"
+  >
     <div class="art">
       <Cover :thumbs="card.thumbs" :size="card.wide ? 320 : 180" :round="card.round" :wide="card.wide" :radius="6" class="cover" />
       <button

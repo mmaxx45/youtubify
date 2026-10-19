@@ -1,7 +1,7 @@
 // Live mirror of the hidden YouTube Music player, pushed from main/player-state-store.
 
 import { computed, ref, shallowRef } from "vue";
-import type { Thumb } from "../ytm/models";
+import type { Thumb, Track } from "../ytm/models";
 import { command } from "../ytm/client";
 
 // Mirrors the PlayerState shape from main/player-state-store (sent as plain JSON over IPC).
@@ -109,3 +109,22 @@ export const shuffle = () => {
   shuffled.value = true;
 };
 export const playQueueIndex = (index: number) => command("playQueueIndex", index);
+
+/** The playing song in the same shape as list tracks, for menus (add to playlist, radio, ...). */
+export const currentAsTrack = computed<Track | null>(() => {
+  const t = track.value;
+  if (!t) return null;
+  return {
+    key: `now-${t.id}`,
+    videoId: t.id,
+    title: t.title,
+    artists: [{ name: t.author, browseId: t.channelId || undefined }],
+    album: t.albumId ? { name: t.album, browseId: t.albumId } : undefined,
+    duration: "",
+    thumbs: t.thumbnails,
+    explicit: false,
+    detail: "",
+    play: { watchEndpoint: { videoId: t.id } },
+    liked: t.likeStatus === LIKE
+  };
+});

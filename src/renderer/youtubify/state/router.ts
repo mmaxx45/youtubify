@@ -8,7 +8,8 @@ export type Route =
   | { name: "search"; query: string }
   | { name: "collection"; id: string }
   | { name: "artist"; id: string }
-  | { name: "category"; id: string; params?: string; title: string };
+  | { name: "category"; id: string; params?: string; title: string }
+  | { name: "lyrics" };
 
 const stack = ref<Route[]>([{ name: "home" }]);
 const index = ref(0);

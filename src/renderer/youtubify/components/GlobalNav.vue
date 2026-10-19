@@ -80,7 +80,7 @@ const openSettings = () => window.ytmd.openSettingsWindow();
 <template>
   <div class="nav">
     <div class="left">
-      <button class="ytf-icon-button menu" title="Settings" aria-label="Settings" @click="openSettings">
+      <button class="ytf-icon-button app-menu" title="Settings" aria-label="Settings" @click="openSettings">
         <Icon name="more" :size="16" />
       </button>
       <button class="history" :disabled="!canGoBack" title="Go back" aria-label="Go back" @click="back()">
@@ -164,7 +164,7 @@ const openSettings = () => window.ytmd.openSettingsWindow();
   flex: 1;
 }
 
-.menu {
+.app-menu {
   width: 32px;
   height: 32px;
   margin-right: 8px;

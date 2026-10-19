@@ -1,7 +1,7 @@
 // YouTube Music data + playback for the Youtubify UI. Requests run inside the hidden YTM view
 // (window.ytf.innertube) so they use the user's signed-in session.
 
-import type { ArtistPage, BrowseGroup, Card, CategoryPage, CollectionPage, HomePage, PlayEndpoint, SearchPage, Shelf, Track } from "./models";
+import type { ArtistPage, BrowseGroup, Card, CategoryPage, CollectionPage, HomePage, PlayEndpoint, PlaylistOption, SearchPage, Shelf, Track } from "./models";
 import * as parse from "./parse";
 
 const call = <T = unknown>(endpoint: string, body: Record<string, unknown>) => window.ytf.innertube<T>(endpoint, JSON.parse(JSON.stringify(body)));
@@ -92,10 +92,58 @@ export async function getLibrary(): Promise<{ playlists: Card[]; albums: Card[];
 }
 
 /** Creates a private playlist like Spotify's "Create" button and returns its browse id. */
-export async function createPlaylist(title: string): Promise<string> {
-  const res = await call<{ playlistId?: string }>("playlist/create", { title, privacyStatus: "PRIVATE" });
+export async function createPlaylist(title: string, videoIds: string[] = []): Promise<string> {
+  const res = await call<{ playlistId?: string }>("playlist/create", { title, privacyStatus: "PRIVATE", videoIds });
   if (!res.playlistId) throw new Error("YouTube Music didn't return the new playlist");
   return `VL${res.playlistId}`;
+}
+
+/* ---------------------------------------------------------------- library actions */
+
+/** Like / unlike a song (Spotify's "Save to your Liked Songs"). */
+export const rateSong = (videoId: string, like: boolean) => call(like ? "like/like" : "like/removelike", { target: { videoId } });
+
+/** Save / remove a playlist or album (by its plain playlist id) in the user's library. */
+export const savePlaylist = (playlistId: string, save: boolean) => call(save ? "like/like" : "like/removelike", { target: { playlistId } });
+
+/** Follow / unfollow an artist (YouTube subscription). */
+export const followArtist = (channelId: string, follow: boolean) =>
+  call(follow ? "subscription/subscribe" : "subscription/unsubscribe", { channelIds: [channelId] });
+
+/** Playlists the song can be added to, with whether it's already in them. */
+export async function getPlaylistOptions(videoId: string): Promise<PlaylistOption[]> {
+  return parse.parseAddToPlaylist(await call("playlist/get_add_to_playlist", { videoIds: [videoId] }));
+}
+
+export const addToPlaylist = (playlistId: string, videoId: string) =>
+  call("browse/edit_playlist", { playlistId, actions: [{ action: "ACTION_ADD_VIDEO", addedVideoId: videoId, dedupeOption: "DEDUPE_OPTION_SKIP" }] });
+
+export const removeFromPlaylist = (playlistId: string, videoId: string, setVideoId: string) =>
+  call("browse/edit_playlist", { playlistId, actions: [{ action: "ACTION_REMOVE_VIDEO", removedVideoId: videoId, setVideoId }] });
+
+type Lyrics = { lines: string[]; source: string } | null;
+const lyricsCache = new Map<string, Promise<Lyrics>>();
+
+/** Lyrics for a song, or null if YouTube Music has none (cached per song). */
+export function getLyrics(videoId: string): Promise<Lyrics> {
+  if (!lyricsCache.has(videoId)) {
+    const request = (async () => {
+      const browseId = parse.lyricsBrowseId(await call("next", { videoId, isAudioOnly: true }));
+      return browseId ? parse.parseLyrics(await browse({ browseId })) : null;
+    })();
+    // Don't cache failures, so a retry can succeed
+    request.catch(() => lyricsCache.delete(videoId));
+    lyricsCache.set(videoId, request);
+  }
+  return lyricsCache.get(videoId)!;
+}
+
+/**
+ * Add a song or a whole playlist/album to the play queue (end, or right after the current song).
+ * Returns false when nothing is playing yet; callers then just start playback instead.
+ */
+export async function addToQueue(target: { videoId?: string; playlistId?: string }, next = false): Promise<boolean> {
+  return window.ytf.queueAdd({ ...target, next });
 }
 
 /* ---------------------------------------------------------------- playback */

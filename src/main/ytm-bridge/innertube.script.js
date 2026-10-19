@@ -41,6 +41,32 @@
     }
   };
 
+  // Add a song (videoId) or whole playlist/album (playlistId) to YTM's play queue, like its own
+  // "Play next" / "Add to queue" menu items: fetch the queue entries, then insert them into the
+  // queue in YTM's store (hooked by ytmview/preload.ts). Returns false when nothing is queued yet.
+  window.__ytfQueueAdd = async ({ videoId, playlistId, next }) => {
+    const store = window.__YTMD_HOOK__?.ytmStore;
+    if (!store) throw new Error("YouTube Music's queue isn't available yet");
+    const queue = store.getState().queue;
+    if (!queue?.items?.length) return false;
+    const res = await window.__ytfInnertube("music/get_queue", videoId ? { videoIds: [videoId] } : { playlistId });
+    const items = (res.queueDatas ?? []).map(d => d.content).filter(Boolean);
+    if (!items.length) throw new Error("Nothing to add");
+    const rendererOf = item => item.playlistPanelVideoRenderer ?? item.playlistPanelVideoWrapperRenderer?.primaryRenderer?.playlistPanelVideoRenderer;
+    const current = queue.items.findIndex(item => rendererOf(item)?.selected);
+    store.dispatch({
+      type: "ADD_ITEMS",
+      payload: {
+        nextQueueItemId: queue.nextQueueItemId,
+        index: next && current >= 0 ? current + 1 : queue.items.length,
+        items,
+        shuffleEnabled: false,
+        shouldAssignIds: true
+      }
+    });
+    return true;
+  };
+
   window.__ytfInnertube = async (endpoint, body) => {
     const cfg = await ytcfgReady();
     const headers = {

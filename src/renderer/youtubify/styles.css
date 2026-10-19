@@ -158,7 +158,8 @@ img {
   cursor: default;
 }
 
-.ytf-icon-button.active {
+.ytf-icon-button.active,
+.ytf-icon-button.active:hover:not(:disabled) {
   color: var(--essential-bright-accent);
 }
 
