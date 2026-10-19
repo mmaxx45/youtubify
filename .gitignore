@@ -105,3 +105,6 @@ scripts/CONTRIBUTORS.md
 
 # JetBrains IDE (could be more specific, but it's no issues at all, to just ignore the entire folder)
 .idea
+
+# Claude Code worktrees and local settings
+.claude/
