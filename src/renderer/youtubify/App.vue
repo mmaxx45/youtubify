@@ -115,7 +115,7 @@ function onChip(params?: string) {
           <HomeView v-if="route.name === 'home'" :key="`home-${route.chip ?? ''}`" :chip="route.chip" @chip="onChip" />
           <CollectionView v-else-if="route.name === 'collection'" :id="route.id" :key="`col-${route.id}`" />
           <ArtistView v-else-if="route.name === 'artist'" :id="route.id" :key="`artist-${route.id}`" />
-          <SearchView v-else-if="route.name === 'search'" key="search" :query="route.query" />
+          <SearchView v-else-if="route.name === 'search'" key="search" :query="route.query" :filter="route.filter" />
           <CategoryView v-else-if="route.name === 'category'" :id="route.id" :key="`cat-${route.params}`" :params="route.params" :title="route.title" />
         </KeepAlive>
         <LyricsView v-if="route.name === 'lyrics'" />
