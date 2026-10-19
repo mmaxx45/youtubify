@@ -14,6 +14,7 @@ import type {
   SearchPage,
   SearchResults,
   Shelf,
+  ShelfPage,
   Track
 } from "./models";
 import * as parse from "./parse";
@@ -63,6 +64,15 @@ export async function getCollectionMore(id: string, continuation: string, offset
 
 export async function getArtist(id: string): Promise<ArtistPage> {
   return parse.parseArtist(await browse({ browseId: id }), id);
+}
+
+/** The full list behind a shelf's "Show all": its browse page, or that page reloaded with a filter/sort token. */
+export async function getShelfPage(target: { browseId: string; params?: string } | { continuation: string }): Promise<ShelfPage> {
+  return parse.parseShelfPage(await browse(target), "all");
+}
+
+export async function getShelfPageMore(continuation: string, offset: number): Promise<{ cards: Card[]; tracks: Track[]; continuation?: string }> {
+  return parse.parseShelfPageContinuation(await browse({ continuation }), `all-${offset}`);
 }
 
 export async function search(query: string): Promise<SearchPage> {

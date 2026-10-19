@@ -13,12 +13,14 @@ import type {
   Chip,
   CollectionPage,
   HomePage,
+  PageOption,
   PageType,
   PlayEndpoint,
   PlaylistOption,
   SearchPage,
   SearchResults,
   Shelf,
+  ShelfPage,
   Thumb,
   Track
 } from "./models";
@@ -295,6 +297,64 @@ const continuationToken = (contents: Json[]): string | undefined =>
     (contents ?? []).find((c: Json) => c.continuationItemRenderer),
     "token"
   );
+
+const reloadToken = (command: Json): string | undefined => findKey(command, "reloadContinuationData")?.continuation;
+
+/**
+ * The page behind a shelf's "More" link (a grid or list, e.g. MPAD… discography pages), or that
+ * page reloaded through one of its filter chips / sort options.
+ */
+export function parseShelfPage(json: Json, prefix: string): ShelfPage {
+  const sectionList = json.continuationContents?.sectionListContinuation ?? findKey(json.contents, "sectionListRenderer") ?? {};
+  let title = "";
+  let continuation: string | undefined;
+  const items: Json[] = [];
+  for (const s of sectionList.contents ?? []) {
+    const shelf = s.gridRenderer ?? s.musicShelfRenderer ?? s.musicPlaylistShelfRenderer ?? s.musicCarouselShelfRenderer;
+    if (!shelf) continue;
+    const list: Json[] = shelf.items ?? shelf.contents ?? [];
+    items.push(...list);
+    title ||= text(shelf.header?.gridHeaderRenderer?.title) || text(shelf.title) || text(findKey(shelf.header, "title"));
+    continuation ??= shelf.continuations?.[0]?.nextContinuationData?.continuation ?? continuationToken(list);
+  }
+  const { cards, tracks } = parseShelfItems(
+    items.filter(i => !i.continuationItemRenderer),
+    prefix
+  );
+  const sortButton = findKey(sectionList.header, "musicSortFilterButtonRenderer");
+  const sortLabel = text(sortButton?.title);
+  return {
+    title: title || text(json.header?.musicHeaderRenderer?.title),
+    cards,
+    tracks,
+    continuation,
+    filters: findAll(sectionList.header, "chipCloudChipRenderer")
+      .map((c: Json) => ({
+        label: text(c.text),
+        selected: !!c.isSelected,
+        continuation: reloadToken(c.navigationEndpoint),
+        deselect: reloadToken(c.onDeselectedCommand)
+      }))
+      .filter((o: PageOption) => o.label && o.continuation),
+    sorts: findAll(sortButton?.menu, "musicMultiSelectMenuItemRenderer")
+      .map((o: Json) => ({ label: text(o.title), selected: text(o.title) === sortLabel, continuation: reloadToken(o.selectedCommand) }))
+      .filter((o: PageOption) => o.label && o.continuation)
+  };
+}
+
+/** Next batch of a "Show all" page (scrolling down). */
+export function parseShelfPageContinuation(json: Json, prefix: string): { cards: Card[]; tracks: Track[]; continuation?: string } {
+  const c =
+    json.continuationContents?.gridContinuation ??
+    json.continuationContents?.musicShelfContinuation ??
+    json.continuationContents?.musicPlaylistShelfContinuation;
+  const items: Json[] = c?.items ?? c?.contents ?? findKey(json.onResponseReceivedActions, "continuationItems") ?? [];
+  const { cards, tracks } = parseShelfItems(
+    items.filter(i => !i.continuationItemRenderer),
+    prefix
+  );
+  return { cards, tracks, continuation: c?.continuations?.[0]?.nextContinuationData?.continuation ?? continuationToken(items) };
+}
 
 export function parseCollection(json: Json, id: string): CollectionPage {
   const header = findKey(json, "musicResponsiveHeaderRenderer") ?? findKey(json, "musicDetailHeaderRenderer") ?? {};
