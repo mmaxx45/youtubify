@@ -305,6 +305,46 @@ tp-yt-app-drawer#guide #contentContainer,
   margin-top: 12px !important;
 }
 
+/* Playlist play button: YTM's icon follows the entry's text colour, which the hover state above
+   turns white on YTM's white circle. Match the green card buttons instead. */
+#guide-content ytmusic-guide-entry-renderer ytmusic-play-button-renderer {
+  --ytmusic-play-button-background-color: var(--ytf-play);
+  --ytmusic-play-button-active-background-color: var(--ytf-play);
+  --ytmusic-play-button-icon-color: #000;
+  --ytmusic-play-button-icon-loading-color: #000;
+  width: 28px !important;
+  height: 28px !important;
+  margin-top: -2px;
+  border-radius: 50% !important;
+  background: var(--ytf-play) !important;
+  color: #000 !important;
+}
+
+#guide-content ytmusic-guide-entry-renderer ytmusic-play-button-renderer:hover {
+  background: var(--ytf-play-hover) !important;
+  transform: scale(1.06);
+}
+
+#guide-content ytmusic-guide-entry-renderer ytmusic-play-button-renderer .content-wrapper {
+  width: 100% !important;
+  height: 100% !important;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  background: transparent !important;
+}
+
+#guide-content ytmusic-guide-entry-renderer ytmusic-play-button-renderer .icon,
+#guide-content ytmusic-guide-entry-renderer ytmusic-play-button-renderer .icon .yt-icon-shape,
+#guide-content ytmusic-guide-entry-renderer ytmusic-play-button-renderer .icon .yt-icon-shape > div,
+#guide-content ytmusic-guide-entry-renderer ytmusic-play-button-renderer .icon svg {
+  width: 16px !important;
+  height: 16px !important;
+  margin: 0 !important;
+  color: #000 !important;
+  fill: #000 !important;
+}
+
 /* Collapsed (mini) guide: same panel treatment, YTM's own icon-over-label layout inside. */
 #mini-guide.ytmusic-app {
   background: var(--ytf-base) !important;
