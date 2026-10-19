@@ -13,11 +13,14 @@ import type {
   Chip,
   CollectionPage,
   HomePage,
+  PageOption,
   PageType,
   PlayEndpoint,
   PlaylistOption,
   SearchPage,
+  SearchResults,
   Shelf,
+  ShelfPage,
   Thumb,
   Track
 } from "./models";
@@ -299,6 +302,64 @@ const continuationToken = (contents: Json[]): string | undefined =>
     "token"
   );
 
+const reloadToken = (command: Json): string | undefined => findKey(command, "reloadContinuationData")?.continuation;
+
+/**
+ * The page behind a shelf's "More" link (a grid or list, e.g. MPAD… discography pages), or that
+ * page reloaded through one of its filter chips / sort options.
+ */
+export function parseShelfPage(json: Json, prefix: string): ShelfPage {
+  const sectionList = json.continuationContents?.sectionListContinuation ?? findKey(json.contents, "sectionListRenderer") ?? {};
+  let title = "";
+  let continuation: string | undefined;
+  const items: Json[] = [];
+  for (const s of sectionList.contents ?? []) {
+    const shelf = s.gridRenderer ?? s.musicShelfRenderer ?? s.musicPlaylistShelfRenderer ?? s.musicCarouselShelfRenderer;
+    if (!shelf) continue;
+    const list: Json[] = shelf.items ?? shelf.contents ?? [];
+    items.push(...list);
+    title ||= text(shelf.header?.gridHeaderRenderer?.title) || text(shelf.title) || text(findKey(shelf.header, "title"));
+    continuation ??= shelf.continuations?.[0]?.nextContinuationData?.continuation ?? continuationToken(list);
+  }
+  const { cards, tracks } = parseShelfItems(
+    items.filter(i => !i.continuationItemRenderer),
+    prefix
+  );
+  const sortButton = findKey(sectionList.header, "musicSortFilterButtonRenderer");
+  const sortLabel = text(sortButton?.title);
+  return {
+    title: title || text(json.header?.musicHeaderRenderer?.title),
+    cards,
+    tracks,
+    continuation,
+    filters: findAll(sectionList.header, "chipCloudChipRenderer")
+      .map((c: Json) => ({
+        label: text(c.text),
+        selected: !!c.isSelected,
+        continuation: reloadToken(c.navigationEndpoint),
+        deselect: reloadToken(c.onDeselectedCommand)
+      }))
+      .filter((o: PageOption) => o.label && o.continuation),
+    sorts: findAll(sortButton?.menu, "musicMultiSelectMenuItemRenderer")
+      .map((o: Json) => ({ label: text(o.title), selected: text(o.title) === sortLabel, continuation: reloadToken(o.selectedCommand) }))
+      .filter((o: PageOption) => o.label && o.continuation)
+  };
+}
+
+/** Next batch of a "Show all" page (scrolling down). */
+export function parseShelfPageContinuation(json: Json, prefix: string): { cards: Card[]; tracks: Track[]; continuation?: string } {
+  const c =
+    json.continuationContents?.gridContinuation ??
+    json.continuationContents?.musicShelfContinuation ??
+    json.continuationContents?.musicPlaylistShelfContinuation;
+  const items: Json[] = c?.items ?? c?.contents ?? findKey(json.onResponseReceivedActions, "continuationItems") ?? [];
+  const { cards, tracks } = parseShelfItems(
+    items.filter(i => !i.continuationItemRenderer),
+    prefix
+  );
+  return { cards, tracks, continuation: c?.continuations?.[0]?.nextContinuationData?.continuation ?? continuationToken(items) };
+}
+
 export function parseCollection(json: Json, id: string): CollectionPage {
   const header = findKey(json, "musicResponsiveHeaderRenderer") ?? findKey(json, "musicDetailHeaderRenderer") ?? {};
   const secondary = json.contents?.twoColumnBrowseResultsRenderer?.secondaryContents ?? json.contents;
@@ -426,13 +487,21 @@ export function parseSearchTop(json: Json, query: string): Pick<SearchPage, "que
   return result;
 }
 
+// Search shelves page with nextContinuationData; newer responses may use a continuation item instead
+const shelfContinuation = (shelf: Json, contents: Json[]): string | undefined =>
+  shelf?.continuations?.[0]?.nextContinuationData?.continuation ?? continuationToken(contents);
+
 /** Results of a search filtered to one type (songs, artists, ...). */
-export function parseSearchFiltered(json: Json, prefix: string): { cards: Card[]; tracks: Track[] } {
+export function parseSearchFiltered(json: Json, prefix: string): SearchResults {
   const shelves = findAll(json.contents, "musicShelfRenderer");
-  return parseShelfItems(
-    shelves.flatMap(s => s.contents ?? []),
-    prefix
-  );
+  const contents = shelves.flatMap(s => s.contents ?? []);
+  return { ...parseShelfItems(contents, prefix), continuation: shelfContinuation(shelves[0], contents) };
+}
+
+/** The next page of filtered search results (search with `{ continuation }`). */
+export function parseSearchContinuation(json: Json, prefix: string): SearchResults {
+  const shelf = json.continuationContents?.musicShelfContinuation ?? {};
+  return { ...parseShelfItems(shelf.contents, prefix), continuation: shelfContinuation(shelf, shelf.contents) };
 }
 
 export function parseSuggestions(json: Json): string[] {
@@ -502,4 +571,26 @@ export function lyricsBrowseId(nextJson: Json): string | undefined {
   return findAll(nextJson, "browseEndpoint")
     .map((b: Json) => b.browseId)
     .find((id: unknown) => typeof id === "string" && id.startsWith("MPLY"));
+}
+
+/** Linked artists and album in a queue entry's byline ("Artist • Album • 2020"). */
+export function parseBylineLinks(runs: Json[]): { artists: ArtistRef[]; album?: ArtistRef } {
+  const linked = (Array.isArray(runs) ? runs : [])
+    .map((r: Json) => ({ name: String(r?.text ?? ""), browse: browseOf(r?.navigationEndpoint) }))
+    .filter((r): r is { name: string; browse: BrowseTarget } => !!r.browse);
+  const album = linked.find(r => r.browse.pageType === "album");
+  return {
+    artists: linked.filter(r => r.browse.pageType === "artist" || r.browse.pageType === "user").map(r => ({ name: r.name, browseId: r.browse.browseId })),
+    album: album && { name: album.name, browseId: album.browse.browseId }
+  };
+}
+
+/**
+ * The user's listening history (FEmusic_history: one shelf per period like "Today"), flattened
+ * like Spotify's "Recently played". Signed out, YTM answers with a "Sign in" message instead.
+ */
+export function parseHistory(json: Json): { tracks: Track[]; signInRequired: boolean } {
+  const sectionList = findKey(json?.contents, "sectionListRenderer") ?? {};
+  const tracks = parseSections(sectionList.contents, "hist").flatMap(s => s.tracks);
+  return { tracks, signInRequired: !tracks.length && !!findKey(json?.contents, "signInEndpoint") };
 }

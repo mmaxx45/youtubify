@@ -1,11 +1,12 @@
 <script setup lang="ts">
-// Spotify's artist page: banner header, "Popular" tracks, discography rows.
+// Spotify's artist page: banner header, "Popular" tracks, Discography (with filter chips), more rows.
 import { computed, ref, watch } from "vue";
 import type { ArtistPage } from "../ytm/models";
 import { getArtist, play } from "../ytm/client";
 import { pickThumb } from "../ytm/parse";
 import { averageColor } from "../format";
 import { navigate, routeFor } from "../state/router";
+import { isDiscography, showAllRoute } from "../state/shelves";
 import { isFollowing, seedFollow, setFollowing } from "../state/follows";
 import { openMenuAt } from "../state/menu";
 import { artistMenu } from "../menus";
@@ -19,12 +20,14 @@ const page = ref<ArtistPage | null>(null);
 const error = ref("");
 const tint = ref("rgb(83, 83, 83)");
 const showAll = ref(false);
+const discoIndex = ref(0);
 const scroller = ref<HTMLElement | null>(null);
 
 async function load() {
   page.value = null;
   error.value = "";
   showAll.value = false;
+  discoIndex.value = 0;
   scroller.value?.scrollTo({ top: 0 });
   try {
     const id = props.id;
@@ -43,6 +46,14 @@ const banner = computed(() => (page.value ? pickThumb(page.value.thumbs, 1440) :
 const nameSize = computed(() => ((page.value?.name.length ?? 0) <= 16 ? 96 : 64));
 const songs = computed(() => (page.value ? page.value.topSongs.slice(0, showAll.value ? 10 : 5) : []));
 const seeMoreRoute = computed(() => routeFor(page.value?.topSongsMore));
+
+// YTM's Albums / Singles & EPs rows become Spotify's single Discography row with filter chips
+const discography = computed(() => page.value?.shelves.filter(isDiscography) ?? []);
+const otherShelves = computed(() => page.value?.shelves.filter(s => !isDiscography(s)) ?? []);
+const discoPicked = computed(() => discography.value[discoIndex.value] ?? discography.value[0]);
+const discoShelf = computed(() => discoPicked.value && { ...discoPicked.value, key: "discography", title: "Discography", strapline: "" });
+// Show all opens the full discography with the picked chip's filter, titled with the artist's name
+const discoRoute = computed(() => (discoPicked.value && page.value ? showAllRoute(discoPicked.value, page.value.name) : undefined));
 
 const following = computed(() => !!page.value && isFollowing(page.value.channelId));
 const openMore = (e: MouseEvent) => page.value && openMenuAt(e.currentTarget as HTMLElement, artistMenu(page.value));
@@ -94,7 +105,16 @@ function playArtist() {
         </section>
 
         <div v-if="page" class="shelves">
-          <Shelf v-for="s in page.shelves" :key="s.key" :shelf="s" />
+          <Shelf v-if="discoShelf" :shelf="discoShelf" :to="discoRoute">
+            <template #filters>
+              <div class="disco-chips">
+                <button v-for="(s, i) in discography" :key="s.key" class="ytf-pill" :class="{ selected: s === discoPicked }" @click="discoIndex = i">
+                  {{ s.title }}
+                </button>
+              </div>
+            </template>
+          </Shelf>
+          <Shelf v-for="s in otherShelves" :key="s.key" :shelf="s" />
         </div>
       </div>
     </template>
@@ -227,6 +247,13 @@ h1 {
 
 .shelves {
   margin: 0 -12px;
+}
+
+.disco-chips {
+  display: flex;
+  gap: 8px;
+  padding: 0 12px;
+  margin: 8px 0 4px;
 }
 
 .error {

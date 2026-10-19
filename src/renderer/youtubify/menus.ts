@@ -102,6 +102,8 @@ export interface TrackMenuContext {
   // The playlist the row is shown in, when the user can edit it
   editablePlaylistId?: string;
   onRemoved?: (track: Track) => void;
+  // The row is an upcoming song in the queue panel
+  removeFromQueue?: () => void;
 }
 
 export function trackMenu(track: Track, ctx: TrackMenuContext = {}): MenuEntry[] {
@@ -129,6 +131,7 @@ export function trackMenu(track: Track, ctx: TrackMenuContext = {}): MenuEntry[]
       action: () => setLiked(track.videoId, !liked)
     },
     { label: "Add to queue", icon: "queue", action: () => enqueue({ videoId: track.videoId }, () => play(track.play)) },
+    ctx.removeFromQueue ? { label: "Remove from queue", icon: "queue-remove", action: ctx.removeFromQueue } : null,
     "divider",
     {
       label: "Go to song radio",

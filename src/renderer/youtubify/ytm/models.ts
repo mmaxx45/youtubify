@@ -65,6 +65,25 @@ export interface Shelf {
   more?: BrowseTarget;
 }
 
+/** A filter chip or sort option on a "Show all" page; picking it reloads the list from `continuation`. */
+export interface PageOption {
+  label: string;
+  selected: boolean;
+  continuation: string;
+  // Reload for un-picking a selected filter chip (the unfiltered list)
+  deselect?: string;
+}
+
+/** The full list behind a shelf's "Show all" (e.g. an artist's discography). */
+export interface ShelfPage {
+  title: string;
+  cards: Card[];
+  tracks: Track[];
+  continuation?: string;
+  filters: PageOption[];
+  sorts: PageOption[];
+}
+
 export interface Chip {
   label: string;
   selected: boolean;
@@ -127,6 +146,16 @@ export interface SearchPage {
   albums: Card[];
   playlists: Card[];
   videos: Track[];
+}
+
+/** One result type of a search, shown as its own page behind Spotify's filter chips. */
+export type SearchFilter = "songs" | "artists" | "albums" | "playlists" | "podcasts" | "videos" | "profiles";
+
+/** A page of filtered search results; `continuation` loads the next page. */
+export interface SearchResults {
+  tracks: Track[];
+  cards: Card[];
+  continuation?: string;
 }
 
 export interface BrowseTile {
