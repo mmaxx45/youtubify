@@ -474,12 +474,10 @@ ytmusic-two-row-item-renderer ytmusic-item-thumbnail-overlay-renderer {
 }
 
 ytmusic-two-row-item-renderer ytmusic-item-thumbnail-overlay-renderer #content {
-  inset: auto 8px 8px auto !important;
+  inset: 0 !important;
   position: absolute !important;
   width: auto !important;
   height: auto !important;
-  justify-content: flex-end !important;
-  align-items: flex-end !important;
 }
 
 ytmusic-two-row-item-renderer ytmusic-play-button-renderer {
@@ -487,6 +485,9 @@ ytmusic-two-row-item-renderer ytmusic-play-button-renderer {
   --ytmusic-play-button-background-color: var(--ytf-accent);
   --ytmusic-play-button-active-background-color: var(--ytf-accent);
   --ytmusic-play-button-icon-loading-color: #fff;
+  position: absolute !important;
+  inset: auto 8px 8px auto !important;
+  margin: 0 !important;
   width: 48px !important;
   height: 48px !important;
   border-radius: 50% !important;
@@ -510,6 +511,18 @@ ytmusic-two-row-item-renderer ytmusic-play-button-renderer[state="paused"] {
 ytmusic-two-row-item-renderer ytmusic-play-button-renderer:hover {
   background: var(--ytf-accent-hover) !important;
   transform: scale(1.04) !important;
+}
+
+/* YTM's own dark play circle lives inside the button; flatten it so only the red button shows. */
+ytmusic-two-row-item-renderer ytmusic-play-button-renderer .content-wrapper {
+  width: 100% !important;
+  height: 100% !important;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  background: transparent !important;
+  border-radius: 50% !important;
+  box-shadow: none !important;
 }
 
 ytmusic-two-row-item-renderer ytmusic-play-button-renderer .icon {
