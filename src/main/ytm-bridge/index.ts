@@ -3,6 +3,7 @@ import log from "electron-log";
 
 import playerStateStore from "../player-state-store";
 import innertubeScript from "./innertube.script.js?raw";
+import { allowedTestEndpoint, isTestCopy } from "../test-guard";
 
 // Bridge between the Youtubify (Spotify-style) UI in the main window and the hidden YouTube Music
 // view that does the actual playback. The UI asks for data through YTM's own signed-in API, sends
@@ -119,6 +120,8 @@ export function setupYtmBridge({ getMainWindow, getYtmView, isEnabled, topOffset
   ipcMain.handle("ytf:innertube", async (event, endpoint: unknown, body: unknown) => {
     if (!fromMainWindow(event.sender)) throw new Error("ytf:innertube is only available to the main window");
     if (typeof endpoint !== "string" || !/^[a-z_/]+$/.test(endpoint)) throw new Error("invalid innertube endpoint");
+    // Development test copies may only read (test-guard.ts)
+    if (!allowedTestEndpoint(endpoint)) throw new Error(endpoint + " is blocked in test copies");
     const ytmView = getYtmView();
     if (!ytmView) throw new Error("YouTube Music is not loaded");
     const contents = ytmView.webContents;
@@ -192,6 +195,7 @@ export function setupYtmBridge({ getMainWindow, getYtmView, isEnabled, topOffset
 
   ipcMain.on("ytf:signIn", event => {
     if (!fromMainWindow(event.sender)) return;
+    if (isTestCopy) return log.warn("Youtubify test copy: sign-in is disabled");
     getYtmView()?.webContents.loadURL(SIGN_IN_URL);
   });
 
