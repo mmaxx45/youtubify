@@ -704,12 +704,24 @@ ytmusic-player-bar:not(.top-player-bar) .middle-controls .thumbnail-image-wrappe
   margin: 0 8px 0 0 !important;
   border-radius: 4px;
   overflow: hidden;
+  /* Spotify's grey note tile, visible while a cover is missing or failed (see .ytf-img-broken). */
+  background: #282828
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%237c7c7c'%3E%3Cpath d='M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z'/%3E%3C/svg%3E")
+    center / 24px no-repeat;
 }
 
 ytmusic-player-bar:not(.top-player-bar) .middle-controls .thumbnail-image-wrapper img {
   width: 100% !important;
   height: 100% !important;
   object-fit: cover !important;
+}
+
+/* Never show Chromium's broken-image icon: images tagged by the theme's error listener, or a
+   player-bar cover with no source yet. */
+img.ytf-img-broken,
+ytmusic-player-bar:not(.top-player-bar) .thumbnail-image-wrapper img[src=""],
+ytmusic-player-bar:not(.top-player-bar) .thumbnail-image-wrapper img:not([src]) {
+  opacity: 0 !important;
 }
 
 ytmusic-player-bar:not(.top-player-bar) .middle-controls .content-info-wrapper {

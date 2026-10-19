@@ -4,6 +4,20 @@ import log from "electron-log";
 import IIntegration from "../integration";
 import spotifyCss from "./spotify.css?raw";
 
+// CSS can't tell a failed <img> apart from a loaded one, and Chromium draws its broken-image icon
+// for covers that fail while YTM switches tracks. Tag failed images so the theme can hide them over
+// a placeholder. Capture phase because image load/error events don't bubble.
+const brokenImageScript = `(() => {
+  if (window.__ytfBrokenImages) return;
+  window.__ytfBrokenImages = true;
+  document.addEventListener("error", e => {
+    if (e.target instanceof HTMLImageElement) e.target.classList.add("ytf-img-broken");
+  }, true);
+  document.addEventListener("load", e => {
+    if (e.target instanceof HTMLImageElement) e.target.classList.remove("ytf-img-broken");
+  }, true);
+})();`;
+
 // Built-in Spotify-style layout for the YTM view. Unlike CustomCSS this ships with the app and
 // re-applies itself on every page load, since insertCSS only lives as long as the document.
 export default class SpotifyTheme implements IIntegration {
@@ -17,6 +31,8 @@ export default class SpotifyTheme implements IIntegration {
   private readonly onDomReady = () => {
     this.documentGeneration++;
     this.cssKey = null;
+    // Harmless with the theme off (nothing styles the class), so it's installed on every load.
+    this.ytmView?.webContents.executeJavaScript(brokenImageScript).catch(e => log.error("Failed to install broken image handler", e));
     if (this.isEnabled) this.injectCSS();
   };
 
