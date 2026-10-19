@@ -6,6 +6,10 @@ on:
     tags:
       - "v*"
 
+# Creating the GitHub release and uploading installers needs write access to the repo contents
+permissions:
+  contents: write
+
 jobs:
   build:
     strategy:

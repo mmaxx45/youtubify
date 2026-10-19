@@ -70,10 +70,14 @@ const config: ForgeConfig = {
     {
       name: "@electron-forge/publisher-github",
       config: {
+        // || not ??: the publish workflow passes unset repo variables as empty strings
         repository: {
-          owner: process.env.YTMD_UPDATE_FEED_OWNER ?? "mmaxx45",
-          name: process.env.YTMD_UPDATE_FEED_REPOSITORY ?? "youtubify"
-        }
+          owner: process.env.YTMD_UPDATE_FEED_OWNER || "mmaxx45",
+          name: process.env.YTMD_UPDATE_FEED_REPOSITORY || "youtubify"
+        },
+        // Publish straight away so the installer is downloadable from the release page
+        draft: false,
+        prerelease: false
       }
     }
   ],
