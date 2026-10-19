@@ -167,11 +167,40 @@ export async function getPlaylistOptions(videoId: string): Promise<PlaylistOptio
   return parse.parseAddToPlaylist(await call("playlist/get_add_to_playlist", { videoIds: [videoId] }));
 }
 
-export const addToPlaylist = (playlistId: string, videoId: string) =>
-  call("browse/edit_playlist", { playlistId, actions: [{ action: "ACTION_ADD_VIDEO", addedVideoId: videoId, dedupeOption: "DEDUPE_OPTION_SKIP" }] });
+// Without the dedupe option YTM adds the song again (Spotify's "Add anyway")
+export const addToPlaylist = (playlistId: string, videoId: string, allowDuplicate = false) =>
+  call("browse/edit_playlist", {
+    playlistId,
+    actions: [{ action: "ACTION_ADD_VIDEO", addedVideoId: videoId, ...(allowDuplicate ? {} : { dedupeOption: "DEDUPE_OPTION_SKIP" }) }]
+  });
 
 export const removeFromPlaylist = (playlistId: string, videoId: string, setVideoId: string) =>
   call("browse/edit_playlist", { playlistId, actions: [{ action: "ACTION_REMOVE_VIDEO", removedVideoId: videoId, setVideoId }] });
+
+/* ---------------------------------------------------------------- playlist editing (payloads as in ytmusicapi's edit_playlist / delete_playlist) */
+
+async function editPlaylist(playlistId: string, actions: Record<string, unknown>[]) {
+  const res = await call<{ status?: string }>("browse/edit_playlist", { playlistId, actions });
+  // YTM answers 200 with a failed status when an edit is rejected
+  if (res?.status && res.status !== "STATUS_SUCCEEDED") throw new Error(`Playlist edit failed: ${res.status}`);
+  return res;
+}
+
+/** Rename / re-describe a playlist (by its plain playlist id); only the given fields are sent. */
+export function editPlaylistDetails(playlistId: string, changes: { title?: string; description?: string }) {
+  const actions: Record<string, unknown>[] = [];
+  if (changes.title !== undefined) actions.push({ action: "ACTION_SET_PLAYLIST_NAME", playlistName: changes.title });
+  if (changes.description !== undefined) actions.push({ action: "ACTION_SET_PLAYLIST_DESCRIPTION", playlistDescription: changes.description });
+  return editPlaylist(playlistId, actions);
+}
+
+/** Move a playlist entry in front of another one (both by setVideoId); without a successor it moves to the end. */
+export const movePlaylistItem = (playlistId: string, setVideoId: string, successorSetVideoId?: string) =>
+  editPlaylist(playlistId, [
+    { action: "ACTION_MOVE_VIDEO_BEFORE", setVideoId, ...(successorSetVideoId ? { movedSetVideoIdSuccessor: successorSetVideoId } : {}) }
+  ]);
+
+export const deletePlaylist = (playlistId: string) => call("playlist/delete", { playlistId });
 
 type Lyrics = { lines: string[]; source: string } | null;
 const lyricsCache = new Map<string, Promise<Lyrics>>();

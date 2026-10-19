@@ -34,6 +34,8 @@ export interface Card {
   wide: boolean;
   browse?: BrowseTarget;
   play?: PlayEndpoint;
+  // The user's own playlist (YTM offers "Delete playlist" for it): editable, accepts dropped songs
+  owned?: boolean;
 }
 
 export interface Track {

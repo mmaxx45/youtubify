@@ -2,7 +2,8 @@
 // Spotify's playlist/album page: tinted header, action bar, track table.
 import { computed, ref, watch } from "vue";
 import type { CollectionPage, Track } from "../ytm/models";
-import { getCollection, getCollectionMore, play, playlistIdOf, savePlaylist } from "../ytm/client";
+import { getCollection, getCollectionMore, movePlaylistItem, play, playlistIdOf, savePlaylist } from "../ytm/client";
+import { editDetails, lastDetailsEdit } from "../state/playlistEdits";
 import { openMenuAt } from "../state/menu";
 import { collectionMenu } from "../menus";
 import { refreshLibrary } from "../state/library";
@@ -86,6 +87,43 @@ function onRemoved(track: Track) {
   if (page.value) page.value.tracks = page.value.tracks.filter(t => t.key !== track.key);
 }
 
+/* ---------------------------------------------------------------- editing your own playlist */
+
+const canEdit = computed(() => !!page.value?.editable && !!page.value.playlistId && props.id !== "VLLM");
+
+// Spotify opens "Edit details" from the header title and cover of your own playlists
+function openEditDetails() {
+  const p = page.value;
+  if (canEdit.value && p) editDetails({ playlistId: p.playlistId!, title: p.title, description: p.description, thumbs: p.thumbs, browseId: p.id });
+}
+
+watch(lastDetailsEdit, edit => {
+  const p = page.value;
+  if (!edit || !p || p.playlistId !== edit.playlistId) return;
+  if (edit.title !== undefined) p.title = edit.title;
+  if (edit.description !== undefined) p.description = edit.description;
+});
+
+// Drag & drop reorder: move the row right away, undo it if YouTube Music refuses
+async function onReorder(from: number, to: number) {
+  const p = page.value;
+  if (!p?.playlistId) return;
+  const before = p.tracks;
+  const moved = before[from];
+  const rest = before.filter((_, i) => i !== from);
+  const at = to > from ? to - 1 : to;
+  // The entry it lands in front of; none means the end of the playlist
+  const successor = rest[at];
+  if (!moved?.setVideoId || (successor && !successor.setVideoId)) return toast("Couldn't move this song");
+  p.tracks = [...rest.slice(0, at), moved, ...rest.slice(at)];
+  try {
+    await movePlaylistItem(p.playlistId, moved.setVideoId, successor?.setVideoId);
+  } catch {
+    if (page.value === p && p.tracks.length === before.length) p.tracks = before;
+    toast("Couldn't move this song");
+  }
+}
+
 function onShuffle() {
   if (!page.value?.play) return;
   play(page.value.play);
@@ -121,11 +159,18 @@ async function onScroll() {
 
     <template v-else>
       <header class="hero">
-        <Cover v-if="page" :thumbs="page.thumbs" :size="232" :liked="isLiked" class="hero-cover" />
+        <button v-if="page && canEdit" class="hero-cover edit-cover" title="Edit details" aria-label="Edit details" @click="openEditDetails">
+          <Cover :thumbs="page.thumbs" :size="232" class="edit-cover-img" />
+          <span class="edit-overlay"><Icon name="pencil" :size="48" /></span>
+        </button>
+        <Cover v-else-if="page" :thumbs="page.thumbs" :size="232" :liked="isLiked" class="hero-cover" />
         <div v-else class="hero-cover ytf-skeleton" />
         <div v-if="page" class="hero-text">
           <span class="type">{{ typeLabel }}</span>
-          <h1 :style="{ fontSize: `${titleSize}px` }">{{ page.title }}</h1>
+          <h1 v-if="canEdit" :style="{ fontSize: `${titleSize}px` }">
+            <button class="edit-title" title="Edit details" @click="openEditDetails">{{ page.title }}</button>
+          </h1>
+          <h1 v-else :style="{ fontSize: `${titleSize}px` }">{{ page.title }}</h1>
           <p v-if="page.description" class="description ytf-clamp-2">{{ page.description }}</p>
           <div class="meta">
             <template v-if="page.kind === 'playlist' && page.owner">
@@ -180,8 +225,11 @@ async function onScroll() {
             :show-album="page.kind === 'playlist'"
             :show-cover="page.kind === 'playlist'"
             :editable-playlist-id="page.editable ? page.playlistId : undefined"
+            :reorderable="canEdit"
+            :can-drop-at-end="!page.continuation"
             show-header
             @removed="onRemoved"
+            @reorder="onReorder"
           />
           <div v-else class="loading">
             <div v-for="i in 8" :key="i" class="row-skeleton ytf-skeleton" />
@@ -223,6 +271,44 @@ async function onScroll() {
 
 .view {
   container-type: inline-size;
+}
+
+/* Your own playlist: the cover opens "Edit details" and shows Spotify's pencil on hover */
+.edit-cover {
+  position: relative;
+  flex: none;
+  padding: 0;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.edit-cover .edit-cover-img {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.edit-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.7);
+  color: #fff;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.edit-cover:hover .edit-overlay,
+.edit-cover:focus-visible .edit-overlay {
+  opacity: 1;
+}
+
+.edit-title {
+  font: inherit;
+  letter-spacing: inherit;
+  text-align: left;
+  overflow-wrap: anywhere;
 }
 
 .hero-text {

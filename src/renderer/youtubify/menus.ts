@@ -9,6 +9,7 @@ import { isFollowing, setFollowing } from "./state/follows";
 import { albums, playlists, refreshLibrary } from "./state/library";
 import { navigate } from "./state/router";
 import { toast } from "./state/toast";
+import { deleteOwnPlaylist, editDetails, type OwnPlaylist } from "./state/playlistEdits";
 
 const YTM = "https://music.youtube.com";
 
@@ -170,6 +171,12 @@ function libraryItem(playlistId: string, saved: boolean, onChange?: (saved: bool
   };
 }
 
+// "Edit details" / "Delete" for the user's own playlists
+const ownPlaylistItems = (playlist: OwnPlaylist): MenuItem[] => [
+  { label: "Edit details", icon: "pencil", action: () => editDetails(playlist) },
+  { label: "Delete", icon: "minus-circle", action: () => deleteOwnPlaylist(playlist) }
+];
+
 export function cardMenu(card: Card): MenuEntry[] {
   if (card.kind === "artist" && card.browse) return artistMenuFor(card.browse.browseId);
   if (card.kind === "podcast" && card.browse) return podcastMenu(card.browse.browseId.replace(/^MPSP/, ""));
@@ -194,8 +201,9 @@ export function cardMenu(card: Card): MenuEntry[] {
   const playlistId = playlistIdOfCard(card);
   const entries: (MenuEntry | null)[] = [
     playlistId && card.play ? { label: "Add to queue", icon: "queue", action: () => enqueue({ playlistId }, () => play(card.play!)) } : null,
-    // Liked Songs is always in the library and can't be removed
-    playlistId && card.browse?.browseId !== "VLLM" ? libraryItem(playlistId, inLibrary(card.browse?.browseId)) : null,
+    ...(playlistId && card.owned ? ownPlaylistItems({ playlistId, title: card.title, thumbs: card.thumbs, browseId: card.browse?.browseId }) : []),
+    // Liked Songs is always in the library and can't be removed; own playlists are deleted instead
+    playlistId && card.browse?.browseId !== "VLLM" && !card.owned ? libraryItem(playlistId, inLibrary(card.browse?.browseId)) : null,
     "divider",
     card.browse
       ? share(
@@ -212,6 +220,9 @@ export function collectionMenu(page: CollectionPage, onSavedChange?: (saved: boo
   return tidy([
     pid && page.play ? { label: "Add to queue", icon: "queue", action: () => enqueue({ playlistId: pid }, () => play(page.play!)) } : null,
     pid && page.id !== "VLLM" && !page.editable ? libraryItem(pid, page.saved, onSavedChange) : null,
+    ...(pid && page.id !== "VLLM" && page.editable
+      ? ownPlaylistItems({ playlistId: pid, title: page.title, description: page.description, thumbs: page.thumbs, browseId: page.id })
+      : []),
     artistItem(page.artists),
     "divider",
     share(

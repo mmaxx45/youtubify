@@ -9,6 +9,8 @@ import { session, signIn } from "../state/session";
 import { isPlaying, playlistId } from "../state/player";
 import { openMenu } from "../state/menu";
 import { cardMenu } from "../menus";
+import { dragging, leavesElement } from "../state/drag";
+import { dropTrackOnPlaylist } from "../state/playlistEdits";
 import Cover from "./Cover.vue";
 import Icon from "./Icon.vue";
 
@@ -82,6 +84,30 @@ async function create() {
   }
 }
 
+// Dragged songs can be dropped onto your own playlists (and Liked Songs) to add them
+const dropTarget = ref<string | null>(null);
+const acceptsDrop = (c: Card) => !!dragging.value && !!c.browse?.browseId.startsWith("VL") && (c.owned || isLiked(c));
+
+function onDragOver(e: DragEvent, c: Card) {
+  if (!acceptsDrop(c)) return;
+  e.preventDefault();
+  if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
+  dropTarget.value = c.key;
+}
+
+function onDragLeave(e: DragEvent, c: Card) {
+  if (dropTarget.value === c.key && leavesElement(e)) dropTarget.value = null;
+}
+
+function onDrop(e: DragEvent, c: Card) {
+  const drag = dragging.value;
+  dropTarget.value = null;
+  if (!drag || !acceptsDrop(c)) return;
+  e.preventDefault();
+  dragging.value = null;
+  for (const t of drag.tracks) dropTrackOnPlaylist(c.browse!.browseId, c.title, t);
+}
+
 async function startSearch() {
   searching.value = true;
   await nextTick();
@@ -137,10 +163,13 @@ async function startSearch() {
       <li v-for="c in items" :key="c.key">
         <button
           class="item"
-          :class="{ active: isActive(c) }"
+          :class="{ 'active': isActive(c), 'drop-target': dropTarget === c.key }"
           :title="props.collapsed ? c.title : undefined"
           @click="open(c.browse)"
           @contextmenu="openMenu($event, cardMenu(c))"
+          @dragover="onDragOver($event, c)"
+          @dragleave="onDragLeave($event, c)"
+          @drop="onDrop($event, c)"
         >
           <Cover :thumbs="c.thumbs" :size="48" :round="c.kind === 'artist'" :liked="isLiked(c)" />
           <span v-if="!props.collapsed" class="text">
@@ -317,6 +346,12 @@ header {
 
 .item.active:hover {
   background: var(--background-elevated-highlight);
+}
+
+/* Hovering a dragged song over a playlist it can be dropped on */
+.item.drop-target {
+  background: var(--background-elevated-highlight);
+  box-shadow: inset 0 0 0 2px var(--essential-bright-accent);
 }
 
 .text {
