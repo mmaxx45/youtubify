@@ -8,6 +8,7 @@ import { openMenu } from "../state/menu";
 import { startTrackDrag } from "../state/drag";
 import { trackMenu } from "../menus";
 import { formatTime } from "../format";
+import { isSavedEpisode, playingEpisode, setSavedEpisode, showOf } from "../state/podcasts";
 import Cover from "./Cover.vue";
 import Icon from "./Icon.vue";
 import Slider from "./Slider.vue";
@@ -27,8 +28,24 @@ const toggleLyrics = () => (lyricsOpen.value ? back() : navigate({ name: "lyrics
 const previewTime = ref<number | null>(null);
 const shownTime = computed(() => previewTime.value ?? progress.value);
 
+// Episodes: title opens the episode, the byline its show (when we know it), skip ±15s like Spotify
+const episodeShow = computed(() => (playingEpisode.value ? showOf(track.value?.id) : undefined));
+const episodeSaved = computed(() => !!track.value && isSavedEpisode(track.value.id));
+function openTitle() {
+  const t = track.value;
+  if (!t) return;
+  if (playingEpisode.value) navigate({ name: "episode", id: `MPED${t.id}` });
+  else if (t.albumId) navigate({ name: "collection", id: t.albumId });
+}
+function openByline() {
+  const t = track.value;
+  if (episodeShow.value?.browseId) navigate({ name: "podcast", id: episodeShow.value.browseId });
+  else if (t?.channelId) navigate({ name: "artist", id: t.channelId });
+}
+const skip = (seconds: number) => player.seek(Math.min(Math.max(0, progress.value + seconds), duration.value || Infinity));
+
 const volumeIcon = computed(() => (muted.value || volume.value === 0 ? "volume-off" : volume.value < 50 ? "volume-low" : "volume-high"));
-const artistName = computed(() => track.value?.author ?? "");
+const artistName = computed(() => episodeShow.value?.name ?? track.value?.author ?? "");
 
 // Space toggles play/pause unless the user is typing
 function onKey(e: KeyboardEvent) {
@@ -45,24 +62,25 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKey));
   <footer class="bar">
     <div class="left">
       <template v-if="track">
-        <button class="art" aria-label="Now playing view" draggable="true" @dragstart="onDragStart" @click="emit('toggle-panel', 'nowplaying')">
+        <button class="art" aria-label="Now playing view" :draggable="!playingEpisode" @dragstart="onDragStart" @click="emit('toggle-panel', 'nowplaying')">
           <Cover :thumbs="track.thumbnails" :size="56" />
         </button>
-        <div class="meta" draggable="true" @dragstart="onDragStart" @contextmenu="onMenu">
-          <span
-            class="title ytf-ellipsis"
-            :class="{ 'ytf-link': track.albumId }"
-            @click="track.albumId && navigate({ name: 'collection', id: track.albumId })"
-            >{{ track.title }}</span
-          >
-          <span
-            class="artist ytf-ellipsis"
-            :class="{ 'ytf-link': track.channelId }"
-            @click="track.channelId && navigate({ name: 'artist', id: track.channelId })"
-            >{{ artistName }}</span
-          >
+        <div class="meta" :draggable="!playingEpisode" @dragstart="onDragStart" @contextmenu="onMenu">
+          <span class="title ytf-ellipsis" :class="{ 'ytf-link': track.albumId || playingEpisode }" @click="openTitle">{{ track.title }}</span>
+          <span class="artist ytf-ellipsis" :class="{ 'ytf-link': track.channelId || episodeShow }" @click="openByline">{{ artistName }}</span>
         </div>
         <button
+          v-if="playingEpisode"
+          class="ytf-icon-button like"
+          :class="{ active: episodeSaved }"
+          :aria-label="episodeSaved ? 'Remove from Your Episodes' : 'Add to Your Episodes'"
+          :title="episodeSaved ? 'Remove from Your Episodes' : 'Add to Your Episodes'"
+          @click="setSavedEpisode(track.id, !episodeSaved)"
+        >
+          <Icon :name="episodeSaved ? 'check-circle' : 'plus-circle'" :size="16" />
+        </button>
+        <button
+          v-else
           class="ytf-icon-button like"
           :class="{ active: liked }"
           :aria-label="liked ? 'Remove from Liked Songs' : 'Save to Liked Songs'"
@@ -76,7 +94,10 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKey));
 
     <div class="center">
       <div class="controls">
-        <button class="ytf-icon-button" :class="{ active: shuffled }" title="Shuffle" aria-label="Shuffle" :disabled="!track" @click="player.shuffle()">
+        <button v-if="playingEpisode" class="ytf-icon-button" title="Skip back 15 seconds" aria-label="Skip back 15 seconds" @click="skip(-15)">
+          <Icon name="skip-back-15" :size="16" />
+        </button>
+        <button v-else class="ytf-icon-button" :class="{ active: shuffled }" title="Shuffle" aria-label="Shuffle" :disabled="!track" @click="player.shuffle()">
           <Icon name="shuffle" :size="16" />
           <span v-if="shuffled" class="dot" />
         </button>
@@ -89,7 +110,11 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKey));
         <button class="ytf-icon-button" title="Next" aria-label="Next" :disabled="!track" @click="player.next()">
           <Icon name="next" :size="16" />
         </button>
+        <button v-if="playingEpisode" class="ytf-icon-button" title="Skip forward 15 seconds" aria-label="Skip forward 15 seconds" @click="skip(15)">
+          <Icon name="skip-forward-15" :size="16" />
+        </button>
         <button
+          v-else
           class="ytf-icon-button"
           :class="{ active: repeatMode !== player.REPEAT.None }"
           :title="repeatMode === player.REPEAT.None ? 'Enable repeat' : repeatMode === player.REPEAT.All ? 'Enable repeat one' : 'Disable repeat'"

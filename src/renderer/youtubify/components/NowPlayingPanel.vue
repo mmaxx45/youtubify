@@ -12,6 +12,7 @@ import { toast } from "../state/toast";
 import { trackMenu } from "../menus";
 import type { EngineQueueItem } from "../state/player";
 import type { ArtistPage, ArtistRef, Track } from "../ytm/models";
+import { playingEpisode } from "../state/podcasts";
 import Cover from "./Cover.vue";
 import Icon from "./Icon.vue";
 
@@ -198,7 +199,13 @@ const onHistoryMore = (e: MouseEvent, t: Track) => openMenuAt(e.currentTarget as
       <Cover :thumbs="track.thumbnails" :size="400" :radius="8" class="hero" />
       <div class="track" @contextmenu="onMenu">
         <div class="names">
-          <div class="title ytf-ellipsis" :class="{ 'ytf-link': track.albumId }" @click="track.albumId && navigate({ name: 'collection', id: track.albumId })">
+          <div
+            class="title ytf-ellipsis"
+            :class="{ 'ytf-link': track.albumId || playingEpisode }"
+            @click="
+              playingEpisode ? navigate({ name: 'episode', id: `MPED${track.id}` }) : track.albumId && navigate({ name: 'collection', id: track.albumId })
+            "
+          >
             {{ track.title }}
           </div>
           <div class="artist ytf-ellipsis ytf-link" @click="navigate({ name: 'artist', id: track.channelId })">{{ track.author }}</div>

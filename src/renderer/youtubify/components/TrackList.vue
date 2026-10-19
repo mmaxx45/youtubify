@@ -4,7 +4,7 @@
 import { computed, ref, watch } from "vue";
 import type { Track } from "../ytm/models";
 import { isPlaying, togglePlay, track as current } from "../state/player";
-import { navigate } from "../state/router";
+import { navigate, open } from "../state/router";
 import { playTrackInList } from "../ytm/client";
 import { isLiked, seedLikes, toggleLiked } from "../state/likes";
 import { openMenu, openMenuAt } from "../state/menu";
@@ -152,7 +152,10 @@ const gridStyle = computed(() => (props.columns > 1 ? { gridTemplateColumns: `re
           </button>
         </span>
         <span class="text">
-          <span class="title ytf-ellipsis">{{ t.title }}</span>
+          <span class="title ytf-ellipsis">
+            <span v-if="t.page" class="ytf-link" @click.stop="open(t.page)">{{ t.title }}</span>
+            <template v-else>{{ t.title }}</template>
+          </span>
           <span class="artists ytf-ellipsis">
             <span v-if="t.explicit" class="explicit">E</span>
             <template v-for="(a, ai) in t.artists" :key="ai">

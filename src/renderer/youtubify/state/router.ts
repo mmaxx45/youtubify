@@ -12,6 +12,8 @@ export type Route =
   | { name: "category"; id: string; params?: string; title: string }
   // A shelf's "Show all" page: its YTM browse page if it has one, else the stashed shelf (state/shelves.ts)
   | { name: "shelf"; title: string; browseId?: string; params?: string; stash?: string }
+  | { name: "podcast"; id: string }
+  | { name: "episode"; id: string }
   | { name: "lyrics" }
   | { name: "settings" };
 
@@ -47,7 +49,14 @@ export function routeFor(target?: BrowseTarget): Route | null {
     case "album":
     case "playlist":
       return { name: "collection", id: target.browseId };
+    case "podcast":
+      return { name: "podcast", id: target.browseId };
+    case "episode":
+      return { name: "episode", id: target.browseId };
   }
+  // Show pages are "MPSP" + playlist id, episode pages "MPED" + video id
+  if (target.browseId.startsWith("MPSP")) return { name: "podcast", id: target.browseId };
+  if (target.browseId.startsWith("MPED")) return { name: "episode", id: target.browseId };
   if (target.browseId.startsWith("VL") || target.browseId.startsWith("MPRE")) return { name: "collection", id: target.browseId };
   if (target.browseId.startsWith("UC")) return { name: "artist", id: target.browseId };
   return null;
