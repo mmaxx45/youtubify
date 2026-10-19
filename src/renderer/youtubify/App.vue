@@ -13,6 +13,7 @@ import ArtistView from "./views/ArtistView.vue";
 import SearchView from "./views/SearchView.vue";
 import CategoryView from "./views/CategoryView.vue";
 import LyricsView from "./views/LyricsView.vue";
+import SettingsView from "./views/SettingsView.vue";
 import ContextMenu from "./components/ContextMenu.vue";
 import Toast from "./components/Toast.vue";
 import { navigate, route } from "./state/router";
@@ -119,6 +120,7 @@ function onChip(params?: string) {
           <CategoryView v-else-if="route.name === 'category'" :id="route.id" :key="`cat-${route.params}`" :params="route.params" :title="route.title" />
         </KeepAlive>
         <LyricsView v-if="route.name === 'lyrics'" />
+        <SettingsView v-if="route.name === 'settings'" />
       </template>
     </main>
 

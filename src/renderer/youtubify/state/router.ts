@@ -9,7 +9,8 @@ export type Route =
   | { name: "collection"; id: string }
   | { name: "artist"; id: string }
   | { name: "category"; id: string; params?: string; title: string }
-  | { name: "lyrics" };
+  | { name: "lyrics" }
+  | { name: "settings" };
 
 const stack = ref<Route[]>([{ name: "home" }]);
 const index = ref(0);
