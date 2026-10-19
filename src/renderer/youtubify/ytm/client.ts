@@ -1,7 +1,23 @@
 // YouTube Music data + playback for the Youtubify UI. Requests run inside the hidden YTM view
 // (window.ytf.innertube) so they use the user's signed-in session.
 
-import type { ArtistPage, BrowseGroup, Card, CategoryPage, CollectionPage, HomePage, PlayEndpoint, PlaylistOption, SearchPage, Shelf, Track } from "./models";
+import type {
+  ArtistPage,
+  ArtistRef,
+  BrowseGroup,
+  Card,
+  CategoryPage,
+  CollectionPage,
+  Episode,
+  EpisodePage,
+  HomePage,
+  PlayEndpoint,
+  PlaylistOption,
+  PodcastPage,
+  SearchPage,
+  Shelf,
+  Track
+} from "./models";
 import * as parse from "./parse";
 
 const call = <T = unknown>(endpoint: string, body: Record<string, unknown>) => window.ytf.innertube<T>(endpoint, JSON.parse(JSON.stringify(body)));
@@ -166,3 +182,37 @@ export const playlistIdOf = (page: CollectionPage): string | undefined => {
 };
 
 export const command = (name: string, value?: unknown) => window.ytf.command(name, plain(value));
+
+/* ---------------------------------------------------------------- podcasts */
+
+export async function getPodcast(id: string): Promise<PodcastPage> {
+  return parse.parsePodcast(await browse({ browseId: id }), id);
+}
+
+export async function getPodcastMore(show: ArtistRef, continuation: string, offset: number): Promise<{ episodes: Episode[]; continuation?: string }> {
+  return parse.parsePodcastContinuation(await browse({ continuation }), show, offset);
+}
+
+export async function getEpisode(id: string): Promise<EpisodePage> {
+  return parse.parseEpisode(await browse({ browseId: id }), id);
+}
+
+/** Shows the user follows; signed out YTM answers with a sign-in prompt, i.e. none. */
+export async function getLibraryPodcasts(): Promise<Card[]> {
+  return parse.parseLibraryPodcasts(await browse({ browseId: "FEmusic_library_non_music_audio_list" }));
+}
+
+/** Follow / unfollow a show: YTM saves the show's playlist to the library, like its "Save to library" button. */
+export const followPodcast = (playlistId: string, follow: boolean) => savePlaylist(playlistId, follow);
+
+/** Add / remove an episode in YTM's "Episodes for Later" (playlist SE), Spotify's "Your Episodes". */
+export const saveEpisode = (videoId: string, save: boolean) =>
+  call("browse/edit_playlist", {
+    playlistId: "SE",
+    actions: [save ? { action: "ACTION_ADD_VIDEO", addedVideoId: videoId } : { action: "ACTION_REMOVE_VIDEO_BY_VIDEO_ID", removedVideoId: videoId }]
+  });
+
+/** Play an episode from a point in time (description timestamps). */
+export const playEpisodeAt = (videoId: string, seconds: number) => play({ watchEndpoint: { videoId, startTimeSeconds: seconds } });
+
+export const openExternal = (url: string) => window.ytf.openExternal(url);

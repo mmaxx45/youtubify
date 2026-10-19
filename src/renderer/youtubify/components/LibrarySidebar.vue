@@ -2,7 +2,7 @@
 // Spotify's "Your Library" pane backed by the user's YouTube Music library.
 import { computed, nextTick, ref } from "vue";
 import type { Card } from "../ytm/models";
-import { albums, artists, error, loading, playlists, refreshLibrary } from "../state/library";
+import { albums, artists, error, loading, playlists, podcasts, refreshLibrary } from "../state/library";
 import { navigate, open, route } from "../state/router";
 import { createPlaylist } from "../ytm/client";
 import { session, signIn } from "../state/session";
@@ -15,7 +15,7 @@ import Icon from "./Icon.vue";
 const props = defineProps<{ collapsed: boolean }>();
 const emit = defineEmits<{ (e: "toggle-collapse"): void }>();
 
-type Filter = "playlists" | "albums" | "artists" | null;
+type Filter = "playlists" | "albums" | "artists" | "podcasts" | null;
 const filter = ref<Filter>(null);
 const query = ref("");
 const searching = ref(false);
@@ -24,7 +24,7 @@ const sortAlpha = ref(false);
 
 const isLiked = (c: Card) => c.browse?.browseId === "VLLM";
 
-const typeLabel = (c: Card) => (c.kind === "artist" ? "Artist" : c.kind === "album" ? "Album" : "Playlist");
+const typeLabel = (c: Card) => (c.kind === "artist" ? "Artist" : c.kind === "album" ? "Album" : c.kind === "podcast" ? "Podcast" : "Playlist");
 const detail = (c: Card) => {
   if (c.kind === "artist") return "Artist";
   const owner = c.subtitle.split(" • ")[0];
@@ -39,7 +39,9 @@ const items = computed(() => {
         ? albums.value
         : filter.value === "artists"
           ? artists.value
-          : [...playlists.value, ...albums.value, ...artists.value];
+          : filter.value === "podcasts"
+            ? podcasts.value
+            : [...playlists.value, ...albums.value, ...artists.value, ...podcasts.value];
   const q = query.value.trim().toLowerCase();
   if (q) list = list.filter(c => c.title.toLowerCase().includes(q) || c.subtitle.toLowerCase().includes(q));
   if (sortAlpha.value) list = [...list].sort((a, b) => a.title.localeCompare(b.title));
@@ -52,14 +54,15 @@ const chips = computed(() =>
     [
       ["playlists", "Playlists", playlists.value.length],
       ["albums", "Albums", albums.value.length],
-      ["artists", "Artists", artists.value.length]
+      ["artists", "Artists", artists.value.length],
+      ["podcasts", "Podcasts", podcasts.value.length]
     ] as const
   ).filter(([, , n]) => n > 0)
 );
 
 const isActive = (c: Card) => {
   const r = route.value;
-  return (r.name === "collection" || r.name === "artist") && r.id === c.browse?.browseId;
+  return (r.name === "collection" || r.name === "artist" || r.name === "podcast") && r.id === c.browse?.browseId;
 };
 const isPlayingFrom = (c: Card) =>
   !!playlistId.value && !!c.browse && c.browse.browseId.startsWith("VL") && playlistId.value.endsWith(c.browse.browseId.slice(2));

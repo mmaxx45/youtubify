@@ -1,4 +1,4 @@
-import { BrowserView, BrowserWindow, ipcMain } from "electron";
+import { BrowserView, BrowserWindow, ipcMain, shell } from "electron";
 import log from "electron-log";
 
 import playerStateStore from "../player-state-store";
@@ -158,6 +158,12 @@ export function setupYtmBridge({ getMainWindow, getYtmView, isEnabled, topOffset
   ipcMain.handle("ytf:getPlayerState", event => {
     if (!fromMainWindow(event.sender)) return null;
     return playerStateStore.getState();
+  });
+
+  // Links in podcast descriptions open in the default browser (web links only)
+  ipcMain.on("ytf:openExternal", (event, url: unknown) => {
+    if (!fromMainWindow(event.sender) || typeof url !== "string" || !/^https?:\/\//i.test(url)) return;
+    shell.openExternal(url);
   });
 
   playerStateStore.addEventListener(state => send("ytf:playerState", state));

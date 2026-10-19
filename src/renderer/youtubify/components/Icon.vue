@@ -66,6 +66,12 @@ const paths: Record<string, string> = {
     "M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6Zm-1.5 3a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0ZM6.3 6.3l1.06 1.06a6.5 6.5 0 0 0 0 9.28L6.3 17.7a8 8 0 0 1 0-11.4Zm11.4 0a8 8 0 0 1 0 11.4l-1.06-1.06a6.5 6.5 0 0 0 0-9.28L17.7 6.3ZM3.47 3.47l1.06 1.06a10.5 10.5 0 0 0 0 14.94l-1.06 1.06a12 12 0 0 1 0-17.06Zm17.06 0a12 12 0 0 1 0 17.06l-1.06-1.06a10.5 10.5 0 0 0 0-14.94l1.06-1.06Z"
 };
 
+// Podcast controls: circular arrow with "15" inside, like Spotify's skip buttons
+const fifteen = "M8.75 8h1.5v8h-1.5V9.9l-1.35.8-.6-1.2L8.75 8ZM11 8h4.5v1.5h-3v1.75H14a2.375 2.375 0 0 1 0 4.75h-3v-1.5h3a.875.875 0 0 0 0-1.75h-3V8Z";
+paths["skip-back-15"] = `M12 2a10 10 0 1 1-10 10h1.5A8.5 8.5 0 1 0 12 3.5V2Zm0-2v5.5L7.5 2.75 12 0Z${fifteen}`;
+paths["skip-forward-15"] = `M12 2a10 10 0 1 0 10 10h-1.5A8.5 8.5 0 1 1 12 3.5V2Zm0-2v5.5l4.5-2.75L12 0Z${fifteen}`;
+paths["podcast"] = paths.radio;
+
 const d = computed(() => paths[props.name] ?? paths.note);
 </script>
 

@@ -13,6 +13,8 @@ import ArtistView from "./views/ArtistView.vue";
 import SearchView from "./views/SearchView.vue";
 import CategoryView from "./views/CategoryView.vue";
 import LyricsView from "./views/LyricsView.vue";
+import PodcastView from "./views/PodcastView.vue";
+import EpisodeView from "./views/EpisodeView.vue";
 import ContextMenu from "./components/ContextMenu.vue";
 import Toast from "./components/Toast.vue";
 import { navigate, route } from "./state/router";
@@ -117,6 +119,8 @@ function onChip(params?: string) {
           <ArtistView v-else-if="route.name === 'artist'" :id="route.id" :key="`artist-${route.id}`" />
           <SearchView v-else-if="route.name === 'search'" key="search" :query="route.query" />
           <CategoryView v-else-if="route.name === 'category'" :id="route.id" :key="`cat-${route.params}`" :params="route.params" :title="route.title" />
+          <PodcastView v-else-if="route.name === 'podcast'" :id="route.id" :key="`pod-${route.id}`" />
+          <EpisodeView v-else-if="route.name === 'episode'" :id="route.id" :key="`ep-${route.id}`" />
         </KeepAlive>
         <LyricsView v-if="route.name === 'lyrics'" />
       </template>

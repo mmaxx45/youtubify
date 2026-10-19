@@ -18,6 +18,7 @@ declare global {
       closeYtmView(): void;
       onYtmVisible(callback: (visible: boolean) => void): void;
       onSessionChanged(callback: () => void): void;
+      openExternal(url: string): void;
     };
     ytmd: {
       // Settings specific

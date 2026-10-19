@@ -1,6 +1,7 @@
 // Spotify's context menus, built from YouTube Music actions.
 
-import type { ArtistPage, ArtistRef, Card, CollectionPage, PlaylistOption, Track } from "./ytm/models";
+import type { ArtistPage, ArtistRef, Card, CollectionPage, Episode, PlaylistOption, Track } from "./ytm/models";
+import { isFollowingPodcast, isSavedEpisode, setFollowingPodcast, setSavedEpisode } from "./state/podcasts";
 import { addToPlaylist, addToQueue, createPlaylist, getPlaylistOptions, play, removeFromPlaylist, savePlaylist } from "./ytm/client";
 import type { MenuEntry, MenuItem } from "./state/menu";
 import { isLiked, setLiked } from "./state/likes";
@@ -168,6 +169,9 @@ function libraryItem(playlistId: string, saved: boolean, onChange?: (saved: bool
 
 export function cardMenu(card: Card): MenuEntry[] {
   if (card.kind === "artist" && card.browse) return artistMenuFor(card.browse.browseId);
+  if (card.kind === "podcast" && card.browse) return podcastMenu(card.browse.browseId.replace(/^MPSP/, ""));
+  const episodeId = (card.play as { watchEndpoint?: { videoId?: string } } | undefined)?.watchEndpoint?.videoId;
+  if (card.kind === "episode" && episodeId) return episodeMenu({ videoId: episodeId, play: card.play! });
 
   const videoId = (card.play as { watchEndpoint?: { videoId?: string } } | undefined)?.watchEndpoint?.videoId;
   if ((card.kind === "song" || card.kind === "video") && videoId) {
@@ -225,6 +229,34 @@ function artistMenuFor(channelId: string, radio?: ArtistPage["radio"]): MenuEntr
 }
 
 export const artistMenu = (page: ArtistPage) => artistMenuFor(page.channelId, page.radio);
+
+/** Spotify's episode menu; `show` is left out on the show's own page. */
+export function episodeMenu(episode: Pick<Episode, "videoId" | "play" | "show">): MenuEntry[] {
+  const { videoId } = episode;
+  const saved = isSavedEpisode(videoId);
+  const show = episode.show?.browseId;
+  return tidy([
+    {
+      label: saved ? "Remove from Your Episodes" : "Add to Your Episodes",
+      icon: saved ? "check-circle" : "plus-circle",
+      action: () => setSavedEpisode(videoId, !saved)
+    },
+    { label: "Add to queue", icon: "queue", action: () => enqueue({ videoId }, () => play(episode.play)) },
+    "divider",
+    show ? { label: "Go to podcast", icon: "podcast", action: () => navigate({ name: "podcast", id: show }) } : null,
+    "divider",
+    share("Copy Episode Link", `${YTM}/watch?v=${videoId}`)
+  ]);
+}
+
+export function podcastMenu(playlistId: string): MenuEntry[] {
+  const follows = isFollowingPodcast(playlistId);
+  return [
+    { label: follows ? "Unfollow" : "Follow", icon: follows ? "check-circle" : "plus-circle", action: () => setFollowingPodcast(playlistId, !follows) },
+    "divider",
+    share("Copy Show Link", `${YTM}/playlist?list=${playlistId}`)
+  ];
+}
 
 // Drop empty entries and dividers that would end up leading, trailing or doubled
 function tidy(entries: (MenuEntry | null)[]): MenuEntry[] {

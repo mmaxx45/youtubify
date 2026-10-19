@@ -9,6 +9,8 @@ export type Route =
   | { name: "collection"; id: string }
   | { name: "artist"; id: string }
   | { name: "category"; id: string; params?: string; title: string }
+  | { name: "podcast"; id: string }
+  | { name: "episode"; id: string }
   | { name: "lyrics" };
 
 const stack = ref<Route[]>([{ name: "home" }]);
@@ -43,7 +45,14 @@ export function routeFor(target?: BrowseTarget): Route | null {
     case "album":
     case "playlist":
       return { name: "collection", id: target.browseId };
+    case "podcast":
+      return { name: "podcast", id: target.browseId };
+    case "episode":
+      return { name: "episode", id: target.browseId };
   }
+  // Show pages are "MPSP" + playlist id, episode pages "MPED" + video id
+  if (target.browseId.startsWith("MPSP")) return { name: "podcast", id: target.browseId };
+  if (target.browseId.startsWith("MPED")) return { name: "episode", id: target.browseId };
   if (target.browseId.startsWith("VL") || target.browseId.startsWith("MPRE")) return { name: "collection", id: target.browseId };
   if (target.browseId.startsWith("UC")) return { name: "artist", id: target.browseId };
   return null;

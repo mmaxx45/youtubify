@@ -40,6 +40,7 @@ contextBridge.exposeInMainWorld("ytf", {
   closeYtmView: () => ipcRenderer.send("ytf:closeYtmView"),
   onYtmVisible: (callback: (visible: boolean) => void) => ipcRenderer.on("ytf:ytmVisible", (_event, visible: boolean) => callback(visible)),
   onSessionChanged: (callback: () => void) => ipcRenderer.on("ytf:sessionChanged", () => callback()),
+  openExternal: (url: string) => ipcRenderer.send("ytf:openExternal", url),
   onPlayerState: (callback: (state: unknown) => void) => {
     const listener = (_event: Electron.IpcRendererEvent, state: unknown) => callback(state);
     ipcRenderer.on("ytf:playerState", listener);

@@ -52,6 +52,8 @@ export interface Track {
   liked?: boolean;
   // Identifies this entry inside its playlist (needed to remove it)
   setVideoId?: string;
+  // The row's own page when its title links somewhere (podcast episodes)
+  page?: BrowseTarget;
 }
 
 export interface Shelf {
@@ -155,4 +157,53 @@ export interface PlaylistOption {
   title: string;
   thumbs: Thumb[];
   containsSong: boolean;
+}
+
+/* ---------------------------------------------------------------- podcasts */
+
+/** A run of rich description text: plain, a web link, or a timestamp inside the episode. */
+export interface TextPart {
+  text: string;
+  url?: string;
+  seconds?: number;
+}
+
+export interface Episode {
+  key: string;
+  videoId: string;
+  title: string;
+  description: string;
+  // Release date as YTM words it ("Sep 16", "Dec 31, 2025", "3d ago")
+  date: string;
+  // "3 hr 36 min"
+  duration: string;
+  // Listening progress 0-100 and YTM's label for it ("20 min left"); signed out it stays 0
+  progress: number;
+  progressText: string;
+  played: boolean;
+  thumbs: Thumb[];
+  show?: ArtistRef;
+  browse?: BrowseTarget;
+  play: PlayEndpoint;
+}
+
+export interface PodcastPage {
+  id: string;
+  // The show's YouTube playlist (browse id without "MPSP"), used to save it
+  playlistId: string;
+  title: string;
+  publisher?: ArtistRef;
+  description: string;
+  thumbs: Thumb[];
+  episodes: Episode[];
+  continuation?: string;
+  saved: boolean;
+}
+
+export interface EpisodePage {
+  id: string;
+  episode: Episode;
+  description: TextPart[];
+  // In YTM's "Episodes for Later" (Spotify's "Your Episodes")
+  saved: boolean;
 }
