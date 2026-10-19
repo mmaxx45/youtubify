@@ -532,6 +532,31 @@ ytmusic-two-row-item-renderer ytmusic-play-button-renderer .icon {
   fill: #000 !important;
 }
 
+/* YTM sizes the icon by its size attribute (video cards get SIZE_HUGE, a glyph as big as the whole
+   button), so pin it to one size centred in the circle. */
+ytmusic-two-row-item-renderer ytmusic-play-button-renderer .icon,
+ytmusic-two-row-item-renderer ytmusic-play-button-renderer .icon .yt-icon-shape,
+ytmusic-two-row-item-renderer ytmusic-play-button-renderer .icon .yt-icon-shape > div,
+ytmusic-two-row-item-renderer ytmusic-play-button-renderer .icon svg {
+  width: 24px !important;
+  height: 24px !important;
+  margin: 0 !important;
+}
+
+/* 16:9 video thumbnails are short, so the button shrinks a little there. */
+ytmusic-two-row-item-renderer[aspect-ratio*="RECTANGLE"] ytmusic-play-button-renderer {
+  width: 40px !important;
+  height: 40px !important;
+}
+
+ytmusic-two-row-item-renderer[aspect-ratio*="RECTANGLE"] ytmusic-play-button-renderer .icon,
+ytmusic-two-row-item-renderer[aspect-ratio*="RECTANGLE"] ytmusic-play-button-renderer .icon .yt-icon-shape,
+ytmusic-two-row-item-renderer[aspect-ratio*="RECTANGLE"] ytmusic-play-button-renderer .icon .yt-icon-shape > div,
+ytmusic-two-row-item-renderer[aspect-ratio*="RECTANGLE"] ytmusic-play-button-renderer .icon svg {
+  width: 20px !important;
+  height: 20px !important;
+}
+
 /* Song rows (Quick picks, playlists, albums, search). */
 ytmusic-responsive-list-item-renderer {
   border-radius: 6px !important;
