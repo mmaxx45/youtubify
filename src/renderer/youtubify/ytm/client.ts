@@ -3,6 +3,7 @@
 
 import type {
   ArtistPage,
+  ArtistRef,
   BrowseGroup,
   Card,
   CategoryPage,
@@ -192,6 +193,26 @@ export function getLyrics(videoId: string): Promise<Lyrics> {
  */
 export async function addToQueue(target: { videoId?: string; playlistId?: string }, next = false): Promise<boolean> {
   return window.ytf.queueAdd({ ...target, next });
+}
+
+/*
+ * Queue editing. `index` is the song's position in the engine's queue (player.queueItems) and
+ * `videoId` the song expected there; edits on a queue that changed meanwhile return false.
+ */
+export const removeFromQueue = (index: number, videoId: string) => window.ytf.queueEdit({ op: "remove", index, videoId }) as Promise<boolean>;
+export const moveInQueue = (index: number, to: number, videoId: string) => window.ytf.queueEdit({ op: "move", index, to, videoId }) as Promise<boolean>;
+/** Removes every song after the current one; resolves to how many were removed. */
+export const clearQueue = () => window.ytf.queueEdit({ op: "clear" }) as Promise<number>;
+
+/** Artist / album links of a queued song (the engine's queue only carries plain text). */
+export async function getQueueItemLinks(index: number, videoId: string): Promise<{ artists: ArtistRef[]; album?: ArtistRef }> {
+  const runs = await window.ytf.queueEdit({ op: "details", index, videoId });
+  return parse.parseBylineLinks(Array.isArray(runs) ? runs : []);
+}
+
+/** Spotify's "Recently played": the YouTube Music listening history (needs a signed-in account). */
+export async function getHistory(): Promise<{ tracks: Track[]; signInRequired: boolean }> {
+  return parse.parseHistory(await browse({ browseId: "FEmusic_history" }));
 }
 
 /* ---------------------------------------------------------------- playback */

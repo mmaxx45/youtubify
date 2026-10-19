@@ -13,6 +13,9 @@ declare global {
       getPlayerState(): Promise<unknown>;
       onPlayerState(callback: (state: unknown) => void): () => void;
       queueAdd(target: { videoId?: string; playlistId?: string; next?: boolean }): Promise<boolean>;
+      // remove/move: false when the queue changed meanwhile; clear: number of songs removed;
+      // details: the song's linked byline runs (artists, album) as innertube JSON
+      queueEdit(edit: { op: "remove" | "move" | "clear" | "details"; index?: number; to?: number; videoId?: string }): Promise<unknown>;
       getSession(): Promise<{ loggedIn: boolean; name?: string; handle?: string; avatar?: string; channelId?: string } | null>;
       signIn(): void;
       closeYtmView(): void;
