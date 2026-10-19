@@ -24,8 +24,16 @@ panel on the right and the player bar at the bottom.
   Spotify's track table that loads the rest of long playlists as you scroll.
 - **Artist pages** – banner, "Popular" songs, albums, singles, videos and related artists, plus artist radio.
 - **Search** – live suggestions while you type, a Top result next to Songs, and rows of artists, albums and playlists.
-  With an empty search box you get recent searches and "Browse all" mood and genre tiles.
+  Filter chips (Songs, Albums, Artists, Playlists, Podcasts, ...) narrow it down. With an empty search box you get
+  recent searches and "Browse all" mood and genre tiles.
+- **Show all pages** – every shelf's title and "Show all" open its full page, including an artist's whole discography.
 - **Now Playing panel and queue** – big artwork, "About the artist", what's next, and the full queue to jump around in.
+  Remove songs, drag them into a new order or clear the queue, and see what you played recently.
+- **Edit your playlists** – Spotify's Edit details dialog (name and description), Delete with a confirmation, drag
+  songs to reorder them, and drag any song onto a playlist or Liked Songs in Your Library.
+- **Podcasts** – show pages with All Episodes and About, episode pages with clickable timestamps, Follow and
+  Your Episodes, and skip back / forward 15 seconds in the player bar while an episode plays.
+- **Account menu and Settings** – your avatar menu with Account, Settings and Log out, and a Spotify-style Settings page.
 - **Player bar** – play/pause, previous/next, seeking, volume, shuffle, repeat, saving the current song and lyrics.
 - **Liked Songs everywhere** – every song row shows Spotify's green check when it's liked and a + to save it.
 - **Right-click menus** – songs: Add to playlist (with "Find a playlist" and New playlist), Remove from this playlist
