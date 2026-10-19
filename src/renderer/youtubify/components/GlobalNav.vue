@@ -6,6 +6,9 @@ import { back, canGoBack, canGoForward, forward, navigate, route } from "../stat
 import { getSuggestions } from "../ytm/client";
 import Icon from "./Icon.vue";
 import { closeYtmView, session, signIn, ytmVisible } from "../state/session";
+import { openMenuAt } from "../state/menu";
+import AccountMenu from "./AccountMenu.vue";
+import SignOutDialog from "./SignOutDialog.vue";
 
 const input = ref<HTMLInputElement | null>(null);
 const query = ref(route.value.name === "search" ? route.value.query : "");
@@ -80,13 +83,26 @@ window.addEventListener("keydown", e => {
 });
 
 const isHome = computed(() => route.value.name === "home");
-const openSettings = () => window.ytmd.openSettingsWindow();
+
+// Spotify's "•••" app menu (top left)
+function openAppMenu(e: MouseEvent) {
+  openMenuAt(e.currentTarget as HTMLElement, [
+    { label: "Settings", action: () => navigate({ name: "settings" }) },
+    { label: "Advanced settings", action: () => window.ytmd.openSettingsWindow() },
+    "divider",
+    { label: "Reload", action: () => location.reload() },
+    { label: "Exit", action: () => window.ytf.quit() }
+  ]);
+}
+
+const avatarButton = ref<HTMLElement | null>(null);
+const accountMenuOpen = ref(false);
 </script>
 
 <template>
   <div class="nav">
     <div class="left">
-      <button class="ytf-icon-button app-menu" title="Settings" aria-label="Settings" @click="openSettings">
+      <button class="ytf-icon-button app-menu" title="Menu" aria-label="Menu" @click="openAppMenu">
         <Icon name="more" :size="16" />
       </button>
       <button class="history" :disabled="!canGoBack" title="Go back" aria-label="Go back" @click="back()">
@@ -137,11 +153,22 @@ const openSettings = () => window.ytmd.openSettingsWindow();
       </button>
       <template v-else-if="session">
         <button v-if="!session.loggedIn" class="login" @click="signIn">Log in</button>
-        <button v-else class="avatar" :title="session.name" :aria-label="session.name || 'Account'" @click="openSettings">
+        <button
+          v-else
+          ref="avatarButton"
+          class="avatar"
+          :title="session.name"
+          :aria-label="session.name || 'Account'"
+          aria-haspopup="menu"
+          :aria-expanded="accountMenuOpen"
+          @click="accountMenuOpen = !accountMenuOpen"
+        >
           <img v-if="session.avatar" :src="session.avatar" alt="" />
           <span v-else>{{ (session.name || "?").slice(0, 1).toUpperCase() }}</span>
         </button>
       </template>
+      <AccountMenu v-if="accountMenuOpen && avatarButton && session?.loggedIn && !ytmVisible" :anchor="avatarButton" @close="accountMenuOpen = false" />
+      <SignOutDialog />
     </div>
   </div>
 </template>

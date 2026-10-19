@@ -13,9 +13,15 @@ declare global {
       getPlayerState(): Promise<unknown>;
       onPlayerState(callback: (state: unknown) => void): () => void;
       queueAdd(target: { videoId?: string; playlistId?: string; next?: boolean }): Promise<boolean>;
-      getSession(): Promise<{ loggedIn: boolean; name?: string; avatar?: string } | null>;
+      getSession(): Promise<{ loggedIn: boolean; name?: string; handle?: string; avatar?: string; channelId?: string } | null>;
       signIn(): void;
       closeYtmView(): void;
+      signOut(): void;
+      // https Google/YouTube pages only (checked in main)
+      openExternal(url: string): void;
+      getAppVersion(): Promise<string>;
+      quit(): void;
+      restart(): void;
       onYtmVisible(callback: (visible: boolean) => void): void;
       onSessionChanged(callback: () => void): void;
     };

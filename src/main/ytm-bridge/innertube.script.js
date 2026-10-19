@@ -23,19 +23,31 @@
     if (!loggedIn) return { loggedIn };
     try {
       const menu = await window.__ytfInnertube("account/account_menu", {});
-      const find = node => {
+      // First node (depth-first) that passes the test
+      const find = (node, test) => {
         if (!node || typeof node !== "object") return null;
-        if (node.activeAccountHeaderRenderer) return node.activeAccountHeaderRenderer;
+        if (test(node)) return node;
         for (const v of Object.values(node)) {
-          const hit = find(v);
+          const hit = find(v, test);
           if (hit) return hit;
         }
         return null;
       };
-      const header = find(menu);
+      const textOf = t => (t?.runs ?? []).map(r => r.text).join("") || t?.simpleText || "";
+      const header = find(menu, n => n.activeAccountHeaderRenderer)?.activeAccountHeaderRenderer;
       const photos = header?.accountPhoto?.thumbnails ?? [];
-      const name = (header?.accountName?.runs ?? []).map(r => r.text).join("") || header?.accountName?.simpleText || "";
-      return { loggedIn, name, avatar: photos[photos.length - 1]?.url ?? "" };
+      // "Your channel" links to the user's channel (missing for accounts without one)
+      const channelId = find(menu, n => typeof n.browseId === "string" && n.browseId.startsWith("UC"))?.browseId ?? "";
+      // YTM's own "Sign out" link; the bridge's sign-out prefers it over YouTube's logout page
+      const signOut = find(menu, n => n.signOutEndpoint);
+      window.__ytfSignOutUrl = signOut?.commandMetadata?.webCommandMetadata?.url ?? "";
+      return {
+        loggedIn,
+        name: textOf(header?.accountName),
+        handle: textOf(header?.channelHandle),
+        avatar: photos[photos.length - 1]?.url ?? "",
+        channelId
+      };
     } catch {
       return { loggedIn };
     }

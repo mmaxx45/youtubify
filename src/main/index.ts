@@ -451,6 +451,11 @@ store.onDidAnyChange(async (newState, oldState) => {
     ytmView.webContents.send("settings:stateChanged", newState, oldState);
   }
 
+  // The Youtubify UI's in-app Settings page
+  if (mainWindow !== null) {
+    mainWindow.webContents.send("settings:stateChanged", newState, oldState);
+  }
+
   // Setting start on boot in development tends to cause a blank electron executable to start on boot so let's never set that
   if (process.env.NODE_ENV !== "development") {
     app.setLoginItemSettings({
@@ -1743,7 +1748,8 @@ app.on("ready", async () => {
 
   // Handle settings store ipc
   ipcMain.on("settings:set", (event, key: string, value?: unknown) => {
-    if (settingsWindow && event.sender !== settingsWindow.webContents) return;
+    // The main window too: the Youtubify UI has its own Settings page
+    if (settingsWindow && event.sender !== settingsWindow.webContents && event.sender !== mainWindow?.webContents) return;
 
     store.set(key, value);
   });

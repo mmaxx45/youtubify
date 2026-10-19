@@ -14,6 +14,7 @@ import SearchView from "./views/SearchView.vue";
 import CategoryView from "./views/CategoryView.vue";
 import LyricsView from "./views/LyricsView.vue";
 import ShelfView from "./views/ShelfView.vue";
+import SettingsView from "./views/SettingsView.vue";
 import ContextMenu from "./components/ContextMenu.vue";
 import Toast from "./components/Toast.vue";
 import { navigate, route } from "./state/router";
@@ -128,6 +129,7 @@ function onChip(params?: string) {
           />
         </KeepAlive>
         <LyricsView v-if="route.name === 'lyrics'" />
+        <SettingsView v-if="route.name === 'settings'" />
       </template>
     </main>
 
