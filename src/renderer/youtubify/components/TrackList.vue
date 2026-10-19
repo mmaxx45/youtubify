@@ -1,13 +1,14 @@
 <script setup lang="ts">
 // Spotify's track table: #, title (cover + artists), album, duration. Double-click or the hover
 // play button starts the track inside its list so the rest of the list becomes the queue.
-import { computed, watch } from "vue";
+import { computed, ref, watch } from "vue";
 import type { Track } from "../ytm/models";
 import { isPlaying, togglePlay, track as current } from "../state/player";
 import { navigate } from "../state/router";
 import { playTrackInList } from "../ytm/client";
 import { isLiked, seedLikes, toggleLiked } from "../state/likes";
 import { openMenu, openMenuAt } from "../state/menu";
+import { dragging, leavesElement, startTrackDrag } from "../state/drag";
 import { trackMenu } from "../menus";
 import Cover from "./Cover.vue";
 import Icon from "./Icon.vue";
@@ -24,11 +25,30 @@ const props = withDefaults(
     columns?: number;
     // Set when the list is a playlist the user owns, enabling "Remove from this playlist"
     editablePlaylistId?: string;
+    // Rows can be dragged to new positions (emits "reorder")
+    reorderable?: boolean;
+    // False while the list isn't fully loaded: the real end of the playlist is further down
+    canDropAtEnd?: boolean;
   }>(),
-  { listPlaylistId: undefined, editablePlaylistId: undefined, showAlbum: true, showCover: true, showHeader: false, showIndex: true, compact: false, columns: 1 }
+  {
+    listPlaylistId: undefined,
+    editablePlaylistId: undefined,
+    showAlbum: true,
+    showCover: true,
+    showHeader: false,
+    showIndex: true,
+    compact: false,
+    columns: 1,
+    reorderable: false,
+    canDropAtEnd: true
+  }
 );
 
-const emit = defineEmits<{ (e: "removed", track: Track): void }>();
+const emit = defineEmits<{
+  (e: "removed", track: Track): void;
+  // Move the row at `from` so it sits before the row now at `to` (to === length: the end)
+  (e: "reorder", from: number, to: number): void;
+}>();
 
 const isCurrent = (t: Track) => current.value?.id === t.videoId;
 const liked = (t: Track) => isLiked(t.videoId, t.liked ?? false);
@@ -44,11 +64,54 @@ function playRow(t: Track, i: number) {
   else playTrackInList(t, props.listPlaylistId, i);
 }
 
+/* ---------------------------------------------------------------- drag & drop */
+
+// Identifies drags that started in this list
+const self = {};
+// Where a reorder drop would land (Spotify's green line), as an index into tracks
+const dropIndex = ref<number | null>(null);
+
+const onDragStart = (e: DragEvent, t: Track, i: number) => startTrackDrag(e, { tracks: [t], source: self, index: i });
+const reordering = () => props.reorderable && dragging.value?.source === self;
+
+function onRowDragOver(e: DragEvent, i: number) {
+  if (!reordering()) return;
+  e.preventDefault();
+  if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
+  const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+  let to = e.clientY < r.top + r.height / 2 ? i : i + 1;
+  if (to === props.tracks.length && !props.canDropAtEnd) to = i;
+  const from = dragging.value!.index!;
+  // Dropping right where it is changes nothing, so no line
+  dropIndex.value = to === from || to === from + 1 ? null : to;
+}
+
+function onListDragLeave(e: DragEvent) {
+  if (leavesElement(e)) dropIndex.value = null;
+}
+
+function onDrop(e: DragEvent) {
+  if (!reordering()) return;
+  e.preventDefault();
+  const from = dragging.value!.index!;
+  const to = dropIndex.value;
+  dropIndex.value = null;
+  dragging.value = null;
+  if (to !== null) emit("reorder", from, to);
+}
+
 const gridStyle = computed(() => (props.columns > 1 ? { gridTemplateColumns: `repeat(${props.columns}, minmax(0, 1fr))` } : {}));
 </script>
 
 <template>
-  <div class="tracklist" :class="{ compact, 'no-album': !showAlbum || compact, 'no-index': !showIndex || compact }" :style="gridStyle" role="grid">
+  <div
+    class="tracklist"
+    :class="{ compact, 'no-album': !showAlbum || compact, 'no-index': !showIndex || compact }"
+    :style="gridStyle"
+    role="grid"
+    @dragleave="onListDragLeave"
+    @drop="onDrop"
+  >
     <div v-if="showHeader && !compact" class="row head" role="row">
       <span class="idx">#</span>
       <span>Title</span>
@@ -59,8 +122,16 @@ const gridStyle = computed(() => (props.columns > 1 ? { gridTemplateColumns: `re
       v-for="(t, i) in tracks"
       :key="t.key"
       class="row"
-      :class="{ current: isCurrent(t) }"
+      :class="{
+        'current': isCurrent(t),
+        'drop-before': dropIndex === i,
+        'drop-after': dropIndex === tracks.length && i === tracks.length - 1
+      }"
       role="row"
+      draggable="true"
+      @dragstart="onDragStart($event, t, i)"
+      @dragover="onRowDragOver($event, i)"
+      @dragend="dropIndex = null"
       @dblclick="playRow(t, i)"
       @contextmenu="openMenu($event, menuFor(t))"
     >
@@ -126,6 +197,7 @@ const gridStyle = computed(() => (props.columns > 1 ? { gridTemplateColumns: `re
 }
 
 .row {
+  position: relative;
   display: grid;
   grid-template-columns: 16px minmax(120px, 6fr) minmax(120px, 4fr) minmax(48px, auto);
   gap: 16px;
@@ -135,6 +207,26 @@ const gridStyle = computed(() => (props.columns > 1 ? { gridTemplateColumns: `re
   border-radius: 4px;
   color: var(--text-subdued);
   font-size: 14px;
+}
+
+/* Spotify's green drop line between rows while reordering a playlist */
+.row.drop-before::before,
+.row.drop-after::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--essential-bright-accent);
+  pointer-events: none;
+}
+
+.row.drop-before::before {
+  top: -1px;
+}
+
+.row.drop-after::after {
+  bottom: -1px;
 }
 
 .no-album .row {

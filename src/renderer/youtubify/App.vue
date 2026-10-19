@@ -15,6 +15,7 @@ import CategoryView from "./views/CategoryView.vue";
 import LyricsView from "./views/LyricsView.vue";
 import ContextMenu from "./components/ContextMenu.vue";
 import Toast from "./components/Toast.vue";
+import DialogHost from "./components/DialogHost.vue";
 import { navigate, route } from "./state/router";
 import { startPlayerSync, track } from "./state/player";
 import { refreshLibrary } from "./state/library";
@@ -128,6 +129,7 @@ function onChip(params?: string) {
     <PlayerBar :right-panel="showRight ? rightPanel : null" @toggle-panel="togglePanel" />
     <ContextMenu />
     <Toast />
+    <DialogHost />
 
     <div v-if="showLoading" class="loading-overlay">
       <Suspense>

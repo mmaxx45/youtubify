@@ -5,6 +5,7 @@ import * as player from "../state/player";
 import { back, navigate, route } from "../state/router";
 import { isLiked, toggleLiked } from "../state/likes";
 import { openMenu } from "../state/menu";
+import { startTrackDrag } from "../state/drag";
 import { trackMenu } from "../menus";
 import { formatTime } from "../format";
 import Cover from "./Cover.vue";
@@ -19,6 +20,8 @@ const { track, isPlaying, duration, progress, volume, muted, repeatMode, shuffle
 const liked = computed(() => isLiked(track.value?.id, player.liked.value));
 const like = () => track.value && toggleLiked(track.value.id, player.liked.value);
 const onMenu = (e: MouseEvent) => player.currentAsTrack.value && openMenu(e, trackMenu(player.currentAsTrack.value));
+// Like Spotify, the playing song can be dragged onto a playlist in Your Library
+const onDragStart = (e: DragEvent) => player.currentAsTrack.value && startTrackDrag(e, { tracks: [player.currentAsTrack.value] });
 const lyricsOpen = computed(() => route.value.name === "lyrics");
 const toggleLyrics = () => (lyricsOpen.value ? back() : navigate({ name: "lyrics" }));
 const previewTime = ref<number | null>(null);
@@ -42,10 +45,10 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKey));
   <footer class="bar">
     <div class="left">
       <template v-if="track">
-        <button class="art" aria-label="Now playing view" @click="emit('toggle-panel', 'nowplaying')">
+        <button class="art" aria-label="Now playing view" draggable="true" @dragstart="onDragStart" @click="emit('toggle-panel', 'nowplaying')">
           <Cover :thumbs="track.thumbnails" :size="56" />
         </button>
-        <div class="meta" @contextmenu="onMenu">
+        <div class="meta" draggable="true" @dragstart="onDragStart" @contextmenu="onMenu">
           <span
             class="title ytf-ellipsis"
             :class="{ 'ytf-link': track.albumId }"

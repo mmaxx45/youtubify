@@ -116,6 +116,9 @@ const cardKind = (browse: BrowseTarget | undefined, play: PlayEndpoint | undefin
   return "other";
 };
 
+// YTM only offers "Delete playlist" in the menus of the user's own playlists
+const isOwnPlaylist = (r: Json): boolean => !!findKey(r.menu, "deletePlaylistEndpoint");
+
 export function parseTwoRowItem(r: Json, key: string): Card {
   const title = text(r.title);
   const subtitle = text(r.subtitle);
@@ -134,7 +137,8 @@ export function parseTwoRowItem(r: Json, key: string): Card {
     round: crop === "MUSIC_THUMBNAIL_CROP_CIRCLE" || kind === "artist",
     wide,
     browse,
-    play
+    play,
+    owned: isOwnPlaylist(r)
   };
 }
 
@@ -169,7 +173,7 @@ export function parseListItem(r: Json, key: string, fallbackArtists: ArtistRef[]
 
   if (browse && !r.playlistItemData) {
     const kind = cardKind(browse, undefined, restText, false);
-    return { card: { key, kind, title, subtitle: restText, thumbs, round: kind === "artist", wide: false, browse } };
+    return { card: { key, kind, title, subtitle: restText, thumbs, round: kind === "artist", wide: false, browse, owned: isOwnPlaylist(r) } };
   }
 
   const titleRun = cols[0]?.[0];
