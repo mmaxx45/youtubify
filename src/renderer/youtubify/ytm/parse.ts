@@ -499,3 +499,25 @@ export function lyricsBrowseId(nextJson: Json): string | undefined {
     .map((b: Json) => b.browseId)
     .find((id: unknown) => typeof id === "string" && id.startsWith("MPLY"));
 }
+
+/** Linked artists and album in a queue entry's byline ("Artist • Album • 2020"). */
+export function parseBylineLinks(runs: Json[]): { artists: ArtistRef[]; album?: ArtistRef } {
+  const linked = (Array.isArray(runs) ? runs : [])
+    .map((r: Json) => ({ name: String(r?.text ?? ""), browse: browseOf(r?.navigationEndpoint) }))
+    .filter((r): r is { name: string; browse: BrowseTarget } => !!r.browse);
+  const album = linked.find(r => r.browse.pageType === "album");
+  return {
+    artists: linked.filter(r => r.browse.pageType === "artist" || r.browse.pageType === "user").map(r => ({ name: r.name, browseId: r.browse.browseId })),
+    album: album && { name: album.name, browseId: album.browse.browseId }
+  };
+}
+
+/**
+ * The user's listening history (FEmusic_history: one shelf per period like "Today"), flattened
+ * like Spotify's "Recently played". Signed out, YTM answers with a "Sign in" message instead.
+ */
+export function parseHistory(json: Json): { tracks: Track[]; signInRequired: boolean } {
+  const sectionList = findKey(json?.contents, "sectionListRenderer") ?? {};
+  const tracks = parseSections(sectionList.contents, "hist").flatMap(s => s.tracks);
+  return { tracks, signInRequired: !tracks.length && !!findKey(json?.contents, "signInEndpoint") };
+}

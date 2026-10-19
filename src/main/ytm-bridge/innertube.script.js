@@ -41,6 +41,8 @@
     }
   };
 
+  const rendererOf = item => item?.playlistPanelVideoRenderer ?? item?.playlistPanelVideoWrapperRenderer?.primaryRenderer?.playlistPanelVideoRenderer;
+
   // Add a song (videoId) or whole playlist/album (playlistId) to YTM's play queue, like its own
   // "Play next" / "Add to queue" menu items: fetch the queue entries, then insert them into the
   // queue in YTM's store (hooked by ytmview/preload.ts). Returns false when nothing is queued yet.
@@ -52,7 +54,6 @@
     const res = await window.__ytfInnertube("music/get_queue", videoId ? { videoIds: [videoId] } : { playlistId });
     const items = (res.queueDatas ?? []).map(d => d.content).filter(Boolean);
     if (!items.length) throw new Error("Nothing to add");
-    const rendererOf = item => item.playlistPanelVideoRenderer ?? item.playlistPanelVideoWrapperRenderer?.primaryRenderer?.playlistPanelVideoRenderer;
     const current = queue.items.findIndex(item => rendererOf(item)?.selected);
     store.dispatch({
       type: "ADD_ITEMS",
@@ -65,6 +66,80 @@
       }
     });
     return true;
+  };
+
+  // Edit YTM's play queue like Spotify's queue panel. `index`/`to` address the list the engine
+  // pushes to the UI (queue items, then autoplay items) and `videoId` must still be at `index`, so
+  // a queue that changed meanwhile is never edited in the wrong place. Only songs after the current
+  // one can be touched. Removing and moving go through YTM's own queue code (the same paths as its
+  // "Remove from queue" item and drag & drop), which also keeps its server-side queue in step.
+  window.__ytfQueueEdit = ({ op, index, to, videoId }) => {
+    const store = window.__YTMD_HOOK__?.ytmStore;
+    const state = store?.getState().queue;
+    if (!state) throw new Error("YouTube Music's queue isn't available yet");
+    const items = state.items ?? [];
+    const all = [...items, ...(state.automixItems ?? [])];
+    const current = items.findIndex(item => rendererOf(item)?.selected);
+    const upcoming = i => Number.isInteger(i) && i > current && i < all.length;
+
+    if (op === "clear") {
+      // Same actions YTM uses when the server replaces the queue after the current song. Local
+      // only: removing each song through the queue service would send one server edit per song.
+      const removed = all.length - current - 1;
+      if (current < 0 || removed <= 0) return 0;
+      const ids = { nextQueueItemId: state.nextQueueItemId, shouldAssignIds: false };
+      store.dispatch({ type: "UPDATE_ITEMS", payload: { ...ids, items: [], currentIndex: current } });
+      store.dispatch({ type: "REPLACE_AUTOMIX_ITEMS", payload: { ...ids, automixItems: [] } });
+      return removed;
+    }
+
+    const renderer = rendererOf(all[index]);
+    if (!upcoming(index) || !renderer || renderer.videoId !== videoId) return false;
+
+    if (op === "details") {
+      // The byline's linked runs (artists, album) for "Go to artist" / "Go to album"
+      const runs = (renderer.longBylineText ?? renderer.shortBylineText)?.runs ?? [];
+      return runs
+        .filter(r => r.navigationEndpoint?.browseEndpoint)
+        .map(r => ({ text: r.text, navigationEndpoint: { browseEndpoint: r.navigationEndpoint.browseEndpoint } }));
+    }
+
+    if (op === "remove") {
+      // YTM's queue service finds the entry by its queue item id (watchEndpoint.index)
+      const service = document.querySelector("ytmusic-app-layout>ytmusic-player-bar")?.queue;
+      const idOf = item => rendererOf(item)?.navigationEndpoint?.watchEndpoint?.index;
+      const id = idOf(all[index]);
+      if (typeof service?.removeItem === "function" && typeof id === "number" && all.filter(item => idOf(item) === id).length === 1) {
+        service.removeItem(String(id));
+      } else {
+        store.dispatch(index < items.length ? { type: "REMOVE_ITEM", payload: index } : { type: "REMOVE_AUTOMIX_ITEM", payload: index - items.length });
+      }
+      return true;
+    }
+
+    if (op === "move") {
+      // Autoplay suggestions can't be reordered in YTM either
+      if (!upcoming(to) || index >= items.length || to >= items.length) return false;
+      if (index === to) return true;
+      // YTM's queue list moves an entry when its drag & drop fires onDrop with the dragged element
+      // (matched by its renderer data) at its new position; give it that shape. Fall back to the
+      // plain store action if the list isn't rendered with the same items.
+      const list = document.querySelector("ytmusic-player-queue");
+      const data = items[index].playlistPanelVideoRenderer ?? items[index].playlistPanelVideoWrapperRenderer;
+      const listIndex = list?.data?.findIndex?.(d => (d.playlistPanelVideoRenderer ?? d.playlistPanelVideoWrapperRenderer) === data);
+      if (typeof list?.onDrop === "function" && list.queue && listIndex === index) {
+        const dragEl = { data };
+        const children = items.filter((_, i) => i !== index);
+        children.splice(to, 0, dragEl);
+        dragEl.parentElement = { children };
+        list.onDrop({ detail: { dragEl } });
+      } else {
+        store.dispatch({ type: "MOVE_ITEM", payload: { fromIndex: index, toIndex: to } });
+      }
+      return rendererOf(store.getState().queue.items[to])?.videoId === videoId;
+    }
+
+    throw new Error(`Unknown queue edit ${op}`);
   };
 
   window.__ytfInnertube = async (endpoint, body) => {

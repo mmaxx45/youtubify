@@ -2,7 +2,7 @@
 
 import { computed, ref, shallowRef } from "vue";
 import type { Thumb, Track } from "../ytm/models";
-import { command } from "../ytm/client";
+import { clearQueue, command, moveInQueue, removeFromQueue } from "../ytm/client";
 
 // Mirrors the PlayerState shape from main/player-state-store (sent as plain JSON over IPC).
 export interface EngineQueueItem {
@@ -85,6 +85,21 @@ export const upNext = computed(() => {
   const i = queueIndex.value;
   return queueItems.value.slice(i + 1).map((item, n) => ({ item, index: i + 1 + n }));
 });
+// Real queue entries come first in queueItems; YTM's autoplay suggestions after them can be
+// removed but not reordered
+export const queueItemCount = computed(() => state.value?.queue?.items?.length ?? 0);
+
+// Queue edits only ever touch songs after the current one; the engine pushes the new queue
+export function removeQueueItem(index: number): Promise<boolean> {
+  const item = queueItems.value[index];
+  return item && index > queueIndex.value ? removeFromQueue(index, item.videoId) : Promise.resolve(false);
+}
+export function moveQueueItem(index: number, to: number): Promise<boolean> {
+  const item = queueItems.value[index];
+  const movable = (i: number) => i > queueIndex.value && i < queueItemCount.value;
+  return item && movable(index) && movable(to) ? moveInQueue(index, to, item.videoId) : Promise.resolve(false);
+}
+export const clearUpNext = () => clearQueue();
 
 export const togglePlay = () => command("playPause");
 export const next = () => command("next");

@@ -144,6 +144,29 @@ export function setupYtmBridge({ getMainWindow, getYtmView, isEnabled, topOffset
     return contents.executeJavaScript(`window.__ytfQueueAdd(${JSON.stringify(arg)})`, true);
   });
 
+  // Spotify's queue editing: remove / move one upcoming song, clear everything after the current
+  // one, or look up a queued song's artist/album links ("details")
+  const queueEditOps = new Set(["remove", "move", "clear", "details"]);
+  ipcMain.handle("ytf:queueEdit", async (event, edit: unknown) => {
+    if (!fromMainWindow(event.sender)) throw new Error("ytf:queueEdit is only available to the main window");
+    const e = edit as { op?: unknown; index?: unknown; to?: unknown; videoId?: unknown } | null;
+    const position = (v: unknown) => (typeof v === "number" && Number.isInteger(v) && v >= 0 ? v : undefined);
+    const op = typeof e?.op === "string" && queueEditOps.has(e.op) ? e.op : undefined;
+    const arg = {
+      op,
+      index: position(e?.index),
+      to: position(e?.to),
+      videoId: typeof e?.videoId === "string" && /^[\w-]+$/.test(e.videoId) ? e.videoId : undefined
+    };
+    if (!op) throw new Error("invalid queue edit");
+    if (op !== "clear" && (arg.index === undefined || !arg.videoId)) throw new Error("queue edit needs an index and videoId");
+    if (op === "move" && arg.to === undefined) throw new Error("queue move needs a target index");
+    const contents = getYtmView()?.webContents;
+    if (!contents) throw new Error("YouTube Music is not loaded");
+    await contents.executeJavaScript(innertubeScript, true);
+    return contents.executeJavaScript(`window.__ytfQueueEdit(${JSON.stringify(arg)})`, true);
+  });
+
   ipcMain.on("ytf:signIn", event => {
     if (!fromMainWindow(event.sender)) return;
     getYtmView()?.webContents.loadURL(SIGN_IN_URL);
