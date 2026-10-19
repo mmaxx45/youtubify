@@ -27,3 +27,21 @@ contextBridge.exposeInMainWorld("ytmd", {
   },
   restartApplicationForUpdate: () => ipcRenderer.send("app:restartApplicationForUpdate")
 });
+
+// Youtubify UI <-> hidden YouTube Music engine (see main/ytm-bridge)
+contextBridge.exposeInMainWorld("ytf", {
+  getConfig: () => ipcRenderer.invoke("ytf:config"),
+  innertube: (endpoint: string, body: unknown) => ipcRenderer.invoke("ytf:innertube", endpoint, body),
+  command: (command: string, value?: unknown) => ipcRenderer.send("ytf:command", command, value),
+  getPlayerState: () => ipcRenderer.invoke("ytf:getPlayerState"),
+  getSession: () => ipcRenderer.invoke("ytf:session"),
+  signIn: () => ipcRenderer.send("ytf:signIn"),
+  closeYtmView: () => ipcRenderer.send("ytf:closeYtmView"),
+  onYtmVisible: (callback: (visible: boolean) => void) => ipcRenderer.on("ytf:ytmVisible", (_event, visible: boolean) => callback(visible)),
+  onSessionChanged: (callback: () => void) => ipcRenderer.on("ytf:sessionChanged", () => callback()),
+  onPlayerState: (callback: (state: unknown) => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, state: unknown) => callback(state);
+    ipcRenderer.on("ytf:playerState", listener);
+    return () => ipcRenderer.removeListener("ytf:playerState", listener);
+  }
+});

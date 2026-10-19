@@ -5,6 +5,19 @@ import MemoryStore from "../store-ipc/memory-store";
 
 declare global {
   interface Window {
+    // Youtubify UI bridge to the hidden YouTube Music engine (main window only)
+    ytf: {
+      getConfig(): Promise<{ youtubifyUi: boolean }>;
+      innertube<T = unknown>(endpoint: string, body: unknown): Promise<T>;
+      command(command: string, value?: unknown): void;
+      getPlayerState(): Promise<unknown>;
+      onPlayerState(callback: (state: unknown) => void): () => void;
+      getSession(): Promise<{ loggedIn: boolean; name?: string; avatar?: string } | null>;
+      signIn(): void;
+      closeYtmView(): void;
+      onYtmVisible(callback: (visible: boolean) => void): void;
+      onSessionChanged(callback: () => void): void;
+    };
     ytmd: {
       // Settings specific
       isDarwin: boolean;

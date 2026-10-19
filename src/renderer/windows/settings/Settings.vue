@@ -45,6 +45,7 @@ const startMinimized = ref<boolean>(general.startMinimized);
 const alwaysShowVolumeSlider = ref<boolean>(appearance.alwaysShowVolumeSlider);
 const customCSSEnabled = ref<boolean>(appearance.customCSSEnabled);
 const spotifyTheme = ref<boolean>(appearance.spotifyTheme !== false);
+const spotifyUi = ref<boolean>(appearance.spotifyUi !== false);
 const customCSSPath = ref<string>(appearance.customCSSPath);
 const zoom = ref<number>(appearance.zoom);
 const trayIconStyle = ref<number>(appearance.trayIconStyle);
@@ -84,6 +85,7 @@ store.onDidAnyChange(async newState => {
   alwaysShowVolumeSlider.value = newState.appearance.alwaysShowVolumeSlider;
   customCSSEnabled.value = newState.appearance.customCSSEnabled;
   spotifyTheme.value = newState.appearance.spotifyTheme !== false;
+  spotifyUi.value = newState.appearance.spotifyUi !== false;
   customCSSPath.value = newState.appearance.customCSSPath;
   zoom.value = newState.appearance.zoom;
   trayIconStyle.value = newState.appearance.trayIconStyle;
@@ -159,6 +161,7 @@ async function settingsChanged() {
   store.set("appearance.alwaysShowVolumeSlider", alwaysShowVolumeSlider.value);
   store.set("appearance.customCSSEnabled", customCSSEnabled.value);
   store.set("appearance.spotifyTheme", spotifyTheme.value);
+  store.set("appearance.spotifyUi", spotifyUi.value);
   store.set("appearance.zoom", zoom.value);
   store.set("appearance.trayIconStyle", trayIconStyle.value);
 
@@ -306,6 +309,14 @@ window.ytmd.handleUpdateDownloaded(() => {
 
         <div v-if="currentTab === 2" class="appearance-tab">
           <YTMDSetting v-model="alwaysShowVolumeSlider" type="checkbox" name="Always show volume slider" @change="settingsChanged" />
+          <YTMDSetting
+            v-model="spotifyUi"
+            type="checkbox"
+            restart-required
+            name="Youtubify interface"
+            description="Spotify-style app with YouTube Music running in the background. Turn off for the classic YouTube Music view."
+            @change="settingChangedRequiresRestart"
+          />
           <YTMDSetting
             v-model="spotifyTheme"
             type="checkbox"

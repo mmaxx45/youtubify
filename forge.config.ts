@@ -17,6 +17,8 @@ for (let i = 0; i < process.argv.length; i++) {
 }
 
 const config: ForgeConfig = {
+  // Lets a test build go elsewhere while a packaged copy in ./out is running (Windows locks its files)
+  outDir: process.env.YTF_OUT_DIR || undefined,
   packagerConfig: {
     executableName: "youtubify",
     icon: "./src/assets/icons/ytmd",

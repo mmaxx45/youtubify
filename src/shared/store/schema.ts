@@ -20,6 +20,7 @@ export type StoreSchema = {
     customCSSEnabled: boolean;
     customCSSPath: string | null;
     spotifyTheme: boolean;
+    spotifyUi: boolean;
     zoom: number;
     trayIconStyle: TrayIconStyle;
   };
