@@ -44,6 +44,7 @@ const startMinimized = ref<boolean>(general.startMinimized);
 
 const alwaysShowVolumeSlider = ref<boolean>(appearance.alwaysShowVolumeSlider);
 const customCSSEnabled = ref<boolean>(appearance.customCSSEnabled);
+const spotifyTheme = ref<boolean>(appearance.spotifyTheme !== false);
 const customCSSPath = ref<string>(appearance.customCSSPath);
 const zoom = ref<number>(appearance.zoom);
 const trayIconStyle = ref<number>(appearance.trayIconStyle);
@@ -82,6 +83,7 @@ store.onDidAnyChange(async newState => {
 
   alwaysShowVolumeSlider.value = newState.appearance.alwaysShowVolumeSlider;
   customCSSEnabled.value = newState.appearance.customCSSEnabled;
+  spotifyTheme.value = newState.appearance.spotifyTheme !== false;
   customCSSPath.value = newState.appearance.customCSSPath;
   zoom.value = newState.appearance.zoom;
   trayIconStyle.value = newState.appearance.trayIconStyle;
@@ -156,6 +158,7 @@ async function settingsChanged() {
 
   store.set("appearance.alwaysShowVolumeSlider", alwaysShowVolumeSlider.value);
   store.set("appearance.customCSSEnabled", customCSSEnabled.value);
+  store.set("appearance.spotifyTheme", spotifyTheme.value);
   store.set("appearance.zoom", zoom.value);
   store.set("appearance.trayIconStyle", trayIconStyle.value);
 
@@ -303,6 +306,13 @@ window.ytmd.handleUpdateDownloaded(() => {
 
         <div v-if="currentTab === 2" class="appearance-tab">
           <YTMDSetting v-model="alwaysShowVolumeSlider" type="checkbox" name="Always show volume slider" @change="settingsChanged" />
+          <YTMDSetting
+            v-model="spotifyTheme"
+            type="checkbox"
+            name="Spotify layout"
+            description="Restyle YouTube Music with the Youtubify (Spotify-style) layout"
+            @change="settingsChanged"
+          />
           <YTMDSetting v-model="customCSSEnabled" type="checkbox" name="Custom CSS" @change="settingsChanged" />
           <YTMDSetting
             v-if="customCSSEnabled"

@@ -19,6 +19,7 @@ export type StoreSchema = {
     alwaysShowVolumeSlider: boolean;
     customCSSEnabled: boolean;
     customCSSPath: string | null;
+    spotifyTheme: boolean;
     zoom: number;
     trayIconStyle: TrayIconStyle;
   };

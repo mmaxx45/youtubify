@@ -1,0 +1,951 @@
+/*
+ * Youtubify — Spotify-style layout for YouTube Music.
+ *
+ * Injected into the YouTube Music view by the SpotifyTheme integration.
+ * YTM renders with Polymer's shady DOM, so plain global selectors reach its internals.
+ * Selectors here target YTM's own element names; if Google changes the markup, a rule
+ * simply stops matching and that part falls back to the stock YTM look.
+ */
+
+:root {
+  --ytf-accent: #ff0033;
+  --ytf-accent-hover: #ff3355;
+  --ytf-base: #000000;
+  --ytf-panel: #121212;
+  --ytf-elevated: #1f1f1f;
+  --ytf-highlight: #2a2a2a;
+  --ytf-press: #000000;
+  --ytf-text: #ffffff;
+  --ytf-subdued: #b3b3b3;
+  --ytf-muted: #7c7c7c;
+  --ytf-gap: 8px;
+  --ytf-radius: 8px;
+  --ytf-nav-h: 64px;
+  --ytf-bar-h: 72px;
+}
+
+/* ---------------------------------------------------------------- canvas + panels */
+
+html {
+  background: var(--ytf-base) !important;
+}
+
+/* Everything above the canvas stays transparent so the fixed panel backdrop below shows through. */
+html body,
+ytmusic-app,
+ytmusic-app-layout {
+  background: transparent !important;
+}
+
+ytmusic-app-layout {
+  --ytmusic-background: transparent;
+  --ytmusic-player-bar-height: var(--ytf-bar-h);
+}
+
+/* The main view is a rounded panel. YTM scrolls the whole window, so the panel is drawn as a
+   fixed backdrop and the nav bar / player bar backgrounds are extended to mask the gutters. */
+body::before {
+  content: "";
+  position: fixed;
+  z-index: -1;
+  top: calc(var(--ytf-nav-h) + var(--ytf-gap));
+  bottom: calc(var(--ytf-bar-h) + var(--ytf-gap));
+  left: calc(var(--ytmusic-guide-width, 240px) + var(--ytf-gap));
+  right: var(--ytf-gap);
+  border-radius: var(--ytf-radius);
+  background: linear-gradient(180deg, #2b2b2b 0, var(--ytf-panel) 332px);
+  pointer-events: none;
+}
+
+body:has(ytmusic-app-layout[player-fullscreened])::before {
+  display: none;
+}
+
+#nav-bar-background.ytmusic-app-layout {
+  height: calc(var(--ytf-nav-h) + var(--ytf-gap)) !important;
+  background: var(--ytf-base) !important;
+  opacity: 1 !important;
+  border: 0 !important;
+}
+
+#nav-bar-divider.ytmusic-app-layout,
+#mini-guide-background.ytmusic-app-layout {
+  display: none !important;
+}
+
+#player-bar-background.ytmusic-app-layout {
+  height: calc(var(--ytf-bar-h) + var(--ytf-gap)) !important;
+  background: var(--ytf-base) !important;
+}
+
+/* YTM paints a big blurred artwork image behind browse pages; soften it so the panel reads as one surface. */
+ytmusic-browse-response ytmusic-fullbleed-thumbnail-renderer {
+  opacity: 0.45;
+  clip-path: inset(0 var(--ytf-gap) 0 calc(var(--ytmusic-guide-width, 240px) + var(--ytf-gap)) round var(--ytf-radius) var(--ytf-radius) 0 0);
+}
+
+/* ---------------------------------------------------------------- top bar */
+
+ytmusic-nav-bar {
+  background: transparent !important;
+}
+
+ytmusic-nav-bar .center-content {
+  justify-content: center;
+}
+
+ytmusic-search-box {
+  --ytmusic-search-background: var(--ytf-elevated);
+  margin: 0 auto !important;
+  width: min(480px, 100%) !important;
+  max-width: 480px;
+}
+
+ytmusic-search-box .search-box {
+  height: 48px !important;
+  border-radius: 500px !important;
+  background: var(--ytf-elevated) !important;
+  border: 1px solid transparent !important;
+  box-shadow: none !important;
+  transition: background-color 0.2s, border-color 0.2s;
+}
+
+ytmusic-search-box .search-box:hover {
+  background: var(--ytf-highlight) !important;
+  border-color: #444 !important;
+}
+
+ytmusic-search-box[opened] .search-box,
+ytmusic-search-box .search-box:focus-within {
+  background: var(--ytf-highlight) !important;
+  border-color: var(--ytf-text) !important;
+  box-shadow: 0 0 0 1px var(--ytf-text) inset !important;
+}
+
+ytmusic-search-box[opened] .search-box {
+  border-radius: 24px 24px 0 0 !important;
+}
+
+ytmusic-search-box #input {
+  font-size: 16px !important;
+  color: var(--ytf-text) !important;
+}
+
+ytmusic-search-box #input::placeholder {
+  color: var(--ytf-subdued) !important;
+}
+
+ytmusic-search-box .search-button yt-icon,
+ytmusic-search-box .search-button {
+  color: var(--ytf-subdued) !important;
+}
+
+ytmusic-search-box #suggestion-list {
+  background: var(--ytf-highlight) !important;
+  border-radius: 0 0 16px 16px !important;
+}
+
+/* Round "Sign in" / avatar buttons on the right. */
+ytmusic-nav-bar #right-content .sign-in-link,
+ytmusic-nav-bar #right-content a[href*="ServiceLogin"] {
+  border-radius: 500px !important;
+  font-weight: 700 !important;
+}
+
+ytmusic-settings-button img,
+ytmusic-nav-bar #right-content yt-img-shadow {
+  outline: 6px solid var(--ytf-elevated);
+  border-radius: 50%;
+}
+
+/* ---------------------------------------------------------------- left sidebar ("Your Library") */
+
+tp-yt-app-drawer#guide #contentContainer,
+#guide-wrapper.ytmusic-app {
+  background: var(--ytf-base) !important;
+  border: 0 !important;
+}
+
+#guide-content.ytmusic-app {
+  top: calc(var(--ytf-nav-h) + var(--ytf-gap)) !important;
+  margin-top: 0 !important;
+  left: var(--ytf-gap);
+  width: calc(100% - var(--ytf-gap)) !important;
+  height: calc(100vh - var(--ytf-nav-h) - var(--ytf-bar-h) - var(--ytf-gap) * 2) !important;
+  max-height: calc(100vh - var(--ytf-nav-h) - var(--ytf-bar-h) - var(--ytf-gap) * 2) !important;
+  position: fixed !important;
+  overflow: hidden !important;
+  border-radius: var(--ytf-radius);
+  background: var(--ytf-panel) !important;
+  border: 0 !important;
+}
+
+#guide-spacer.ytmusic-app {
+  display: none !important;
+}
+
+ytmusic-guide-renderer {
+  height: 100% !important;
+  padding-top: 0 !important;
+}
+
+ytmusic-guide-renderer #sections {
+  height: 100%;
+  padding-top: 8px !important;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+ytmusic-guide-section-renderer {
+  border: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+ytmusic-guide-section-renderer + ytmusic-guide-section-renderer,
+ytmusic-guide-section-renderer + ytmusic-guide-signin-promo-renderer {
+  border-top: 1px solid #282828 !important;
+  margin-top: 8px !important;
+  padding-top: 8px !important;
+}
+
+ytmusic-guide-section-renderer #items {
+  padding: 0 8px !important;
+}
+
+ytmusic-guide-entry-renderer {
+  display: block !important;
+  width: auto !important;
+  margin: 0 !important;
+}
+
+ytmusic-guide-entry-renderer tp-yt-paper-item {
+  min-height: 40px !important;
+  height: auto !important;
+  padding: 8px 12px !important;
+  border-radius: 6px !important;
+  background: transparent !important;
+  color: var(--ytf-subdued) !important;
+  transition: color 0.2s, background-color 0.2s;
+}
+
+ytmusic-guide-entry-renderer:hover tp-yt-paper-item {
+  background: var(--ytf-elevated) !important;
+  color: var(--ytf-text) !important;
+}
+
+ytmusic-guide-entry-renderer[active] tp-yt-paper-item {
+  background: var(--ytf-highlight) !important;
+  color: var(--ytf-text) !important;
+}
+
+ytmusic-guide-entry-renderer .title,
+ytmusic-guide-entry-renderer .guide-icon {
+  color: inherit !important;
+}
+
+ytmusic-guide-entry-renderer[is-primary] .title {
+  font-size: 16px !important;
+  font-weight: 700 !important;
+}
+
+ytmusic-guide-entry-renderer:not([is-primary]) .title {
+  color: var(--ytf-text) !important;
+  font-size: 15px !important;
+  font-weight: 500 !important;
+}
+
+ytmusic-guide-entry-renderer:not([is-primary]) .subtitle {
+  color: var(--ytf-subdued) !important;
+  font-size: 13px !important;
+}
+
+/* "New playlist" button → Spotify's pill "Create" button. */
+ytmusic-guide-signin-promo-renderer #sign-in-button,
+ytmusic-guide-signin-promo-renderer yt-button-shape,
+ytmusic-guide-signin-promo-renderer button {
+  box-sizing: border-box;
+  width: 100% !important;
+  margin: 0 !important;
+}
+
+ytmusic-guide-section-renderer #buttons button,
+ytmusic-guide-signin-promo-renderer button {
+  border-radius: 500px !important;
+  background: var(--ytf-text) !important;
+  color: #000 !important;
+  font-weight: 700 !important;
+  transition: transform 0.1s;
+}
+
+ytmusic-guide-section-renderer #buttons button:hover,
+ytmusic-guide-signin-promo-renderer button:hover {
+  transform: scale(1.04);
+}
+
+ytmusic-guide-signin-promo-renderer {
+  box-sizing: border-box;
+  width: auto !important;
+  margin: 8px !important;
+  padding: 16px 12px !important;
+  border-radius: var(--ytf-radius);
+  background: var(--ytf-elevated);
+  border: 0 !important;
+}
+
+ytmusic-guide-signin-promo-renderer .descriptive-text {
+  color: var(--ytf-subdued) !important;
+  margin-top: 12px !important;
+}
+
+/* ---------------------------------------------------------------- main view: headings, chips, cards */
+
+ytmusic-app {
+  --ytmusic-text-primary: var(--ytf-text);
+  --ytmusic-text-secondary: var(--ytf-subdued);
+}
+
+ytmusic-carousel-shelf-renderer,
+ytmusic-shelf-renderer,
+ytmusic-grid-renderer,
+ytmusic-tastebuilder-shelf-renderer {
+  border: 0 !important;
+}
+
+ytmusic-carousel-shelf-basic-header-renderer h2,
+ytmusic-carousel-shelf-basic-header-renderer .title,
+ytmusic-shelf-renderer h2,
+ytmusic-grid-renderer h2 {
+  font-size: 24px !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.02em;
+  line-height: 1.25 !important;
+}
+
+ytmusic-carousel-shelf-basic-header-renderer .strapline,
+ytmusic-carousel-shelf-basic-header-renderer .strapline-text {
+  color: var(--ytf-subdued) !important;
+  text-transform: none !important;
+  font-size: 14px !important;
+}
+
+/* "More" / "Play all" header buttons → Spotify's quiet "Show all" link style. */
+ytmusic-carousel-shelf-basic-header-renderer #action-buttons button,
+ytmusic-carousel-shelf-basic-header-renderer .more-button button {
+  background: transparent !important;
+  border: 0 !important;
+  color: var(--ytf-subdued) !important;
+  font-weight: 700 !important;
+  font-size: 14px !important;
+}
+
+ytmusic-carousel-shelf-basic-header-renderer #action-buttons button:hover,
+ytmusic-carousel-shelf-basic-header-renderer .more-button button:hover {
+  color: var(--ytf-text) !important;
+  text-decoration: underline;
+}
+
+/* Carousel arrows → small dark circles. */
+ytmusic-carousel-shelf-basic-header-renderer #previous-items-button,
+ytmusic-carousel-shelf-basic-header-renderer #next-items-button,
+ytmusic-carousel-shelf-renderer .navigation-button button {
+  background: var(--ytf-base) !important;
+  border: 0 !important;
+  opacity: 0.85;
+}
+
+/* Mood / filter chips. */
+ytmusic-chip-cloud-chip-renderer a,
+ytmusic-chip-cloud-chip-renderer .gradient-box {
+  border-radius: 500px !important;
+}
+
+ytmusic-chip-cloud-chip-renderer a {
+  background: rgba(255, 255, 255, 0.07) !important;
+  border: 0 !important;
+  color: var(--ytf-text) !important;
+  font-weight: 500 !important;
+  padding: 0 14px !important;
+  height: 32px !important;
+  transition: background-color 0.2s;
+}
+
+ytmusic-chip-cloud-chip-renderer a:hover {
+  background: rgba(255, 255, 255, 0.12) !important;
+}
+
+ytmusic-chip-cloud-chip-renderer[is-selected] a,
+ytmusic-chip-cloud-chip-renderer[chip-style="STYLE_PRIMARY"] a {
+  background: var(--ytf-text) !important;
+  color: #000 !important;
+}
+
+ytmusic-chip-cloud-chip-renderer[is-selected] a *,
+ytmusic-chip-cloud-chip-renderer[chip-style="STYLE_PRIMARY"] a * {
+  color: #000 !important;
+}
+
+/* Square / round cards. */
+ytmusic-two-row-item-renderer {
+  padding: 12px !important;
+  margin-right: 0 !important;
+  border-radius: var(--ytf-radius);
+  transition: background-color 0.3s;
+  box-sizing: border-box;
+}
+
+ytmusic-two-row-item-renderer:hover {
+  background: var(--ytf-elevated);
+}
+
+ytmusic-two-row-item-renderer .image-wrapper,
+ytmusic-two-row-item-renderer ytmusic-thumbnail-renderer,
+ytmusic-two-row-item-renderer ytmusic-thumbnail-renderer img,
+ytmusic-two-row-item-renderer ytmusic-item-thumbnail-overlay-renderer {
+  border-radius: 6px !important;
+}
+
+ytmusic-two-row-item-renderer .image-wrapper {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+ytmusic-two-row-item-renderer[aspect-ratio="MUSIC_TWO_ROW_ITEM_THUMBNAIL_ASPECT_RATIO_SQUARE"] .image-wrapper[circle-cropped],
+ytmusic-two-row-item-renderer[has-circle-cropped-thumbnail] .image-wrapper,
+ytmusic-two-row-item-renderer[has-circle-cropped-thumbnail] img,
+ytmusic-two-row-item-renderer[has-circle-cropped-thumbnail] ytmusic-item-thumbnail-overlay-renderer {
+  border-radius: 50% !important;
+}
+
+ytmusic-two-row-item-renderer .details {
+  margin-top: 8px !important;
+}
+
+ytmusic-two-row-item-renderer .title,
+ytmusic-two-row-item-renderer .title a {
+  color: var(--ytf-text) !important;
+  font-size: 16px !important;
+  font-weight: 500 !important;
+}
+
+ytmusic-two-row-item-renderer .subtitle,
+ytmusic-two-row-item-renderer .subtitle a {
+  color: var(--ytf-subdued) !important;
+  font-size: 14px !important;
+}
+
+/* Card play button: bottom-right red circle that slides up on hover (Spotify's green button). */
+ytmusic-two-row-item-renderer ytmusic-item-thumbnail-overlay-renderer {
+  background: transparent !important;
+}
+
+ytmusic-two-row-item-renderer ytmusic-item-thumbnail-overlay-renderer #content {
+  inset: auto 8px 8px auto !important;
+  position: absolute !important;
+  width: auto !important;
+  height: auto !important;
+  justify-content: flex-end !important;
+  align-items: flex-end !important;
+}
+
+ytmusic-two-row-item-renderer ytmusic-play-button-renderer {
+  --ytmusic-play-button-icon-color: #fff;
+  --ytmusic-play-button-background-color: var(--ytf-accent);
+  --ytmusic-play-button-active-background-color: var(--ytf-accent);
+  --ytmusic-play-button-icon-loading-color: #fff;
+  width: 48px !important;
+  height: 48px !important;
+  border-radius: 50% !important;
+  background: var(--ytf-accent) !important;
+  box-shadow: 0 8px 8px rgba(0, 0, 0, 0.3);
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.3s, transform 0.3s, background-color 0.1s !important;
+}
+
+ytmusic-two-row-item-renderer:hover ytmusic-play-button-renderer,
+ytmusic-two-row-item-renderer ytmusic-play-button-renderer[state="playing"],
+ytmusic-two-row-item-renderer ytmusic-play-button-renderer[state="paused"] {
+  opacity: 1 !important;
+  transform: none;
+}
+
+ytmusic-two-row-item-renderer ytmusic-play-button-renderer:hover {
+  background: var(--ytf-accent-hover) !important;
+  transform: scale(1.04) !important;
+}
+
+ytmusic-two-row-item-renderer ytmusic-play-button-renderer .icon {
+  color: #fff !important;
+  fill: #fff !important;
+}
+
+/* Song rows (Quick picks, playlists, albums, search). */
+ytmusic-responsive-list-item-renderer {
+  border-radius: 6px !important;
+  border-bottom: 0 !important;
+  transition: background-color 0.15s;
+}
+
+ytmusic-responsive-list-item-renderer:hover,
+ytmusic-responsive-list-item-renderer[menu-open] {
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+
+ytmusic-responsive-list-item-renderer[play-button-state="playing"] .title,
+ytmusic-responsive-list-item-renderer[play-button-state="paused"] .title,
+ytmusic-responsive-list-item-renderer[play-button-state="playing"] .title a,
+ytmusic-responsive-list-item-renderer[play-button-state="paused"] .title a {
+  color: var(--ytf-accent) !important;
+}
+
+ytmusic-responsive-list-item-renderer .title,
+ytmusic-responsive-list-item-renderer .title a {
+  font-weight: 500 !important;
+}
+
+ytmusic-responsive-list-item-renderer .secondary-flex-columns,
+ytmusic-responsive-list-item-renderer .secondary-flex-columns a,
+ytmusic-responsive-list-item-renderer .fixed-column {
+  color: var(--ytf-subdued) !important;
+}
+
+ytmusic-responsive-list-item-renderer ytmusic-thumbnail-renderer,
+ytmusic-responsive-list-item-renderer ytmusic-thumbnail-renderer img,
+ytmusic-responsive-list-item-renderer ytmusic-item-thumbnail-overlay-renderer {
+  border-radius: 4px !important;
+}
+
+/* Playlist / album / artist header: big Spotify title + round red play. */
+ytmusic-responsive-header-renderer h1,
+ytmusic-responsive-header-renderer .title,
+ytmusic-detail-header-renderer .title,
+ytmusic-immersive-header-renderer h1,
+ytmusic-immersive-header-renderer .title {
+  font-weight: 900 !important;
+  letter-spacing: -0.04em !important;
+}
+
+ytmusic-responsive-header-renderer ytmusic-thumbnail-renderer,
+ytmusic-responsive-header-renderer ytmusic-thumbnail-renderer img {
+  border-radius: 6px !important;
+  box-shadow: 0 4px 60px rgba(0, 0, 0, 0.5);
+}
+
+ytmusic-responsive-header-renderer ytmusic-play-button-renderer,
+ytmusic-immersive-header-renderer ytmusic-play-button-renderer,
+ytmusic-detail-header-renderer ytmusic-play-button-renderer {
+  --ytmusic-play-button-background-color: var(--ytf-accent);
+  --ytmusic-play-button-active-background-color: var(--ytf-accent);
+  --ytmusic-play-button-icon-color: #fff;
+}
+
+/* Generic pill buttons (Play, Shuffle, Save, Subscribe…). */
+yt-button-shape button.ytSpecButtonShapeNextHost,
+yt-button-shape button.yt-spec-button-shape-next {
+  border-radius: 500px !important;
+  font-weight: 700 !important;
+}
+
+/* ---------------------------------------------------------------- player bar */
+
+ytmusic-player-bar {
+  --paper-slider-active-color: var(--ytf-text);
+  --paper-slider-secondary-color: #5e5e5e;
+  --paper-slider-container-color: #4d4d4d;
+  --paper-slider-knob-color: var(--ytf-text);
+  --paper-slider-knob-start-color: var(--ytf-text);
+  --paper-slider-knob-start-border-color: transparent;
+  --paper-progress-active-color: var(--ytf-text);
+  --paper-progress-container-color: #4d4d4d;
+  --paper-progress-secondary-color: #5e5e5e;
+
+  background: var(--ytf-base) !important;
+  border: 0 !important;
+  grid-template-columns: minmax(180px, 30%) minmax(0, 40%) minmax(180px, 30%) !important;
+  grid-template-rows: 40px 32px !important;
+  grid-template-areas:
+    "start middle end"
+    "start progress end" !important;
+  padding: 0 16px 0 8px !important;
+  box-sizing: border-box;
+}
+
+ytmusic-player-bar .middle-controls {
+  grid-area: start !important;
+  justify-content: flex-start !important;
+  align-items: center !important;
+  min-width: 0;
+  padding: 0 !important;
+  gap: 4px;
+}
+
+ytmusic-player-bar .middle-controls .thumbnail-image-wrapper {
+  width: 56px !important;
+  height: 56px !important;
+  flex: 0 0 56px;
+  margin: 0 8px 0 0 !important;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+ytmusic-player-bar .middle-controls .thumbnail-image-wrapper img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+}
+
+ytmusic-player-bar .middle-controls .content-info-wrapper {
+  min-width: 0;
+  flex: 0 1 auto !important;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+ytmusic-player-bar .content-info-wrapper .title {
+  color: var(--ytf-text) !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+}
+
+ytmusic-player-bar .content-info-wrapper .byline,
+ytmusic-player-bar .content-info-wrapper .byline a {
+  color: var(--ytf-subdued) !important;
+  font-size: 12px !important;
+}
+
+ytmusic-player-bar .content-info-wrapper .byline a:hover {
+  color: var(--ytf-text) !important;
+  text-decoration: underline;
+}
+
+/* Spotify has no dislike in the bar; keep the like button only. */
+ytmusic-player-bar .middle-controls-buttons #button-shape-dislike,
+ytmusic-player-bar .middle-controls-buttons ytmusic-like-button-renderer #button-shape-dislike {
+  display: none !important;
+}
+
+ytmusic-player-bar .middle-controls-buttons {
+  flex: 0 0 auto;
+}
+
+/* Center: transport buttons on row 1, progress on row 2. */
+ytmusic-player-bar #left-controls {
+  grid-area: middle !important;
+  display: contents !important;
+}
+
+ytmusic-player-bar .left-controls-buttons {
+  grid-area: middle !important;
+  justify-self: center;
+  align-self: end;
+  height: 36px !important;
+  gap: 8px;
+  padding: 0 !important;
+  align-items: center;
+}
+
+ytmusic-player-bar .left-controls-buttons yt-icon-button,
+ytmusic-player-bar .right-controls-buttons yt-icon-button {
+  color: var(--ytf-subdued) !important;
+  --yt-icon-color: var(--ytf-subdued);
+}
+
+ytmusic-player-bar .left-controls-buttons yt-icon-button:hover,
+ytmusic-player-bar .right-controls-buttons yt-icon-button:hover {
+  color: var(--ytf-text) !important;
+  --yt-icon-color: var(--ytf-text);
+}
+
+ytmusic-player-bar .left-controls-buttons .previous-button,
+ytmusic-player-bar .left-controls-buttons .next-button {
+  width: 32px !important;
+  height: 32px !important;
+  padding: 6px !important;
+}
+
+ytmusic-player-bar #play-pause-button {
+  width: 32px !important;
+  height: 32px !important;
+  padding: 6px !important;
+  margin: 0 8px !important;
+  border-radius: 50% !important;
+  background: var(--ytf-text) !important;
+  color: #000 !important;
+  --yt-icon-color: #000;
+  transition: transform 0.1s;
+}
+
+ytmusic-player-bar #play-pause-button #button {
+  width: 20px !important;
+  height: 20px !important;
+  padding: 0 !important;
+}
+
+ytmusic-player-bar #play-pause-button yt-icon {
+  width: 20px !important;
+  height: 20px !important;
+}
+
+ytmusic-player-bar #play-pause-button yt-icon,
+ytmusic-player-bar #play-pause-button .yt-icon-shape {
+  color: #000 !important;
+  fill: #000 !important;
+}
+
+ytmusic-player-bar #play-pause-button:hover {
+  transform: scale(1.06);
+}
+
+ytmusic-player-bar .time-info {
+  grid-area: progress !important;
+  justify-self: end;
+  align-self: center;
+  margin-top: 0 !important;
+  color: var(--ytf-subdued) !important;
+  font-size: 12px !important;
+  font-variant-numeric: tabular-nums;
+  padding: 0 !important;
+  min-width: 84px;
+  text-align: right;
+}
+
+ytmusic-player-bar #progress-bar {
+  grid-area: progress !important;
+  position: relative !important;
+  inset: auto !important;
+  width: auto !important;
+  margin: 0 96px 0 0 !important;
+  align-self: start;
+  --paper-slider-height: 4px;
+}
+
+ytmusic-player-bar #progress-bar #progressContainer,
+ytmusic-player-bar #progress-bar #primaryProgress,
+ytmusic-player-bar #progress-bar #secondaryProgress {
+  height: 4px !important;
+  border-radius: 2px;
+}
+
+ytmusic-player-bar #progress-bar #progressContainer {
+  background: #4d4d4d !important;
+}
+
+ytmusic-player-bar #progress-bar #secondaryProgress {
+  background: #5e5e5e !important;
+}
+
+ytmusic-player-bar #progress-bar #primaryProgress {
+  background: var(--ytf-text) !important;
+}
+
+ytmusic-player-bar #progress-bar:hover {
+  --paper-slider-active-color: var(--ytf-accent);
+  --paper-progress-active-color: var(--ytf-accent);
+}
+
+ytmusic-player-bar #progress-bar:hover #primaryProgress {
+  background: var(--ytf-accent) !important;
+}
+
+ytmusic-player-bar #progress-bar .slider-knob-inner {
+  opacity: 0;
+  width: 12px !important;
+  height: 12px !important;
+  transition: opacity 0.1s;
+}
+
+ytmusic-player-bar #progress-bar:hover .slider-knob-inner {
+  opacity: 1;
+}
+
+/* Right: volume etc. Shuffle + repeat are lifted into the transport cluster like Spotify. */
+ytmusic-player-bar #right-controls {
+  grid-area: end !important;
+  justify-content: flex-end !important;
+  align-items: center !important;
+  position: static !important;
+}
+
+ytmusic-player-bar .right-controls-buttons {
+  position: static !important;
+}
+
+ytmusic-player-bar .right-controls-buttons .shuffle,
+ytmusic-player-bar .right-controls-buttons .repeat {
+  position: absolute !important;
+  top: 6px;
+  width: 32px !important;
+  height: 32px !important;
+  padding: 4px !important;
+}
+
+ytmusic-player-bar .right-controls-buttons .shuffle {
+  left: calc(50% - 132px);
+}
+
+ytmusic-player-bar .right-controls-buttons .repeat {
+  left: calc(50% + 100px);
+}
+
+/* Lit state → accent tint plus Spotify's little dot. */
+ytmusic-player-bar[shuffle-on] .right-controls-buttons .shuffle,
+ytmusic-player-bar .right-controls-buttons .repeat[aria-pressed="true"],
+ytmusic-player-bar:not([repeat-mode="NONE"]) .right-controls-buttons .repeat {
+  color: var(--ytf-accent) !important;
+  --yt-icon-color: var(--ytf-accent);
+}
+
+ytmusic-player-bar[shuffle-on] .right-controls-buttons .shuffle::after,
+ytmusic-player-bar:not([repeat-mode="NONE"]) .right-controls-buttons .repeat::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -4px;
+  width: 4px;
+  height: 4px;
+  margin-left: -2px;
+  border-radius: 50%;
+  background: var(--ytf-accent);
+}
+
+/* Spotify always shows the volume slider (YTM only reveals it on hover). */
+ytmusic-player-bar #volume-slider {
+  opacity: 1 !important;
+  pointer-events: initial !important;
+  width: 100px !important;
+  order: 2;
+}
+
+ytmusic-player-bar #volume-slider #progressContainer {
+  background: #4d4d4d !important;
+}
+
+ytmusic-player-bar #volume-slider #primaryProgress {
+  background: var(--ytf-text) !important;
+}
+
+ytmusic-player-bar #volume-slider:hover #primaryProgress {
+  background: var(--ytf-accent) !important;
+}
+
+ytmusic-player-bar .right-controls-buttons {
+  order: 1;
+}
+
+ytmusic-player-bar .toggle-player-page-button {
+  order: 3;
+}
+
+ytmusic-player-bar #volume-slider,
+ytmusic-player-bar #expand-volume-slider {
+  --paper-slider-active-color: var(--ytf-text);
+  --paper-slider-knob-color: var(--ytf-text);
+}
+
+ytmusic-player-bar #volume-slider:hover {
+  --paper-slider-active-color: var(--ytf-accent);
+}
+
+/* ---------------------------------------------------------------- now playing page */
+
+/* The player page overlays the main view; clip it to the same rounded panel. */
+ytmusic-player-page#player-page {
+  background: var(--ytf-panel) !important;
+  clip-path: inset(var(--ytf-gap) var(--ytf-gap) var(--ytf-gap) var(--ytf-gap) round var(--ytf-radius));
+}
+
+ytmusic-app-layout[player-fullscreened] ytmusic-player-page#player-page {
+  clip-path: none;
+}
+
+ytmusic-player-page tp-yt-paper-tabs {
+  --paper-tabs-selection-bar-color: var(--ytf-text);
+}
+
+ytmusic-player-page tp-yt-paper-tab {
+  text-transform: none !important;
+  font-weight: 700 !important;
+  font-size: 14px !important;
+  color: var(--ytf-subdued) !important;
+}
+
+ytmusic-player-page tp-yt-paper-tab.iron-selected {
+  color: var(--ytf-text) !important;
+}
+
+ytmusic-player-queue-item {
+  border-radius: 6px;
+  border-bottom: 0 !important;
+}
+
+ytmusic-player-queue-item:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+
+ytmusic-player-queue-item[selected] {
+  background: var(--ytf-highlight) !important;
+}
+
+ytmusic-player-queue-item[selected] .song-title {
+  color: var(--ytf-accent) !important;
+}
+
+ytmusic-player-queue-item .song-title {
+  font-weight: 500 !important;
+}
+
+ytmusic-player-queue-item .byline,
+ytmusic-player-queue-item .duration {
+  color: var(--ytf-subdued) !important;
+}
+
+/* ---------------------------------------------------------------- menus, dialogs, misc */
+
+tp-yt-iron-dropdown ytmusic-menu-popup-renderer,
+ytmusic-menu-popup-renderer {
+  background: #282828 !important;
+  border-radius: 4px !important;
+  box-shadow: 0 16px 24px rgba(0, 0, 0, 0.3), 0 6px 8px rgba(0, 0, 0, 0.2) !important;
+  padding: 4px !important;
+  border: 0 !important;
+}
+
+ytmusic-menu-navigation-item-renderer,
+ytmusic-menu-service-item-renderer,
+ytmusic-toggle-menu-service-item-renderer {
+  border-radius: 2px;
+}
+
+ytmusic-menu-navigation-item-renderer:hover,
+ytmusic-menu-service-item-renderer:hover,
+ytmusic-toggle-menu-service-item-renderer:hover {
+  background: #3e3e3e !important;
+}
+
+tp-yt-paper-dialog {
+  background: var(--ytf-highlight) !important;
+  border-radius: var(--ytf-radius) !important;
+}
+
+/* Spotify-style thin, overlay-ish scrollbars. */
+html {
+  scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+  scrollbar-width: thin;
+}
+
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border: 3px solid transparent;
+  background-clip: content-box;
+  border-radius: 0;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255, 255, 255, 0.5);
+}
