@@ -172,6 +172,9 @@ const spotifyTheme = new SpotifyTheme();
 
 const ytmViewIntegrationScripts: { [name: string]: { [name: string]: string } } = {};
 
+// Matches the logo outro in YTMViewLoading.vue
+const YTM_VIEW_REVEAL_DELAY_MS = 1900;
+
 let mainWindow: BrowserWindow = null;
 let settingsWindow: BrowserWindow = null;
 let ytmView: BrowserView = null;
@@ -1590,18 +1593,28 @@ app.on("ready", async () => {
 
       memoryStore.set("ytmViewLoading", false);
       clearTimeout(ytmViewLoadTimeout);
-      mainWindow.addBrowserView(ytmView);
-      ytmView.setBounds({
-        x: 0,
-        y: 36,
-        width: mainWindow.getContentBounds().width,
-        height: mainWindow.getContentBounds().height - 36
-      });
-      if (process.env.NODE_ENV === "development") {
-        ytmView.webContents.openDevTools({
-          mode: "detach"
-        });
-      }
+
+      // The view covers the loading screen, so hold it back until the logo outro has played
+      const loadedView = ytmView;
+      const alreadyAttached = mainWindow.getBrowserViews().includes(loadedView);
+      setTimeout(
+        () => {
+          if (ytmView !== loadedView || mainWindow === null) return;
+          mainWindow.addBrowserView(ytmView);
+          ytmView.setBounds({
+            x: 0,
+            y: 36,
+            width: mainWindow.getContentBounds().width,
+            height: mainWindow.getContentBounds().height - 36
+          });
+          if (process.env.NODE_ENV === "development") {
+            ytmView.webContents.openDevTools({
+              mode: "detach"
+            });
+          }
+        },
+        alreadyAttached ? 0 : YTM_VIEW_REVEAL_DELAY_MS
+      );
 
       // TODO: this is just a hack fix for ratio volume to run the enable script
       ratioVolume.ytmViewLoaded();
