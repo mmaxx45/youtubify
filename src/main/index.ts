@@ -36,7 +36,7 @@ import NowPlayingNotifications from "./integrations/notifications";
 import SpotifyTheme from "./integrations/spotify-theme";
 import VolumeRatio from "./integrations/volume-ratio";
 import { setupYtmBridge } from "./ytm-bridge";
-import { enforceTestCopyProfile, guardYtmView, isTestCopy } from "./test-guard";
+import { enforceTestCopyProfile, guardYtmView, isTestCopy, signedInTest } from "./test-guard";
 
 // Development test copies must run sandboxed (see test-guard.ts); checked before anything opens the profile
 enforceTestCopyProfile();
@@ -1358,7 +1358,7 @@ const createMainWindow = (): void => {
   });
 
   mainWindow.on("ready-to-show", () => {
-    if (isTestCopy) {
+    if (isTestCopy && !signedInTest) {
       // Off-screen and without focus, so test copies never get in the user's way
       mainWindow.setPosition(-20000, -20000);
       mainWindow.showInactive();

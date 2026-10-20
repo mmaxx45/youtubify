@@ -3,7 +3,7 @@ import log from "electron-log";
 
 import playerStateStore from "../player-state-store";
 import innertubeScript from "./innertube.script.js?raw";
-import { allowedTestEndpoint, isTestCopy } from "../test-guard";
+import { allowedTestRequest, isTestCopy, noteTestResponse, signedInTest } from "../test-guard";
 
 // Bridge between the Youtubify (Spotify-style) UI in the main window and the hidden YouTube Music
 // view that does the actual playback. The UI asks for data through YTM's own signed-in API, sends
@@ -120,14 +120,16 @@ export function setupYtmBridge({ getMainWindow, getYtmView, isEnabled, topOffset
   ipcMain.handle("ytf:innertube", async (event, endpoint: unknown, body: unknown) => {
     if (!fromMainWindow(event.sender)) throw new Error("ytf:innertube is only available to the main window");
     if (typeof endpoint !== "string" || !/^[a-z_/]+$/.test(endpoint)) throw new Error("invalid innertube endpoint");
-    // Development test copies may only read (test-guard.ts)
-    if (!allowedTestEndpoint(endpoint)) throw new Error(endpoint + " is blocked in test copies");
+    // Development test copies may only read, or write to their own test data (test-guard.ts)
+    if (!allowedTestRequest(endpoint, body)) throw new Error(endpoint + " is blocked in test copies");
     const ytmView = getYtmView();
     if (!ytmView) throw new Error("YouTube Music is not loaded");
     const contents = ytmView.webContents;
     // Installing is idempotent; doing it per call covers reloads of the YTM view.
     await contents.executeJavaScript(innertubeScript, true);
-    return contents.executeJavaScript(`window.__ytfInnertube(${JSON.stringify(endpoint)}, ${JSON.stringify(body ?? {})})`, true);
+    const result = await contents.executeJavaScript(`window.__ytfInnertube(${JSON.stringify(endpoint)}, ${JSON.stringify(body ?? {})})`, true);
+    noteTestResponse(endpoint, result);
+    return result;
   });
 
   ipcMain.handle("ytf:session", async event => {
@@ -144,6 +146,8 @@ export function setupYtmBridge({ getMainWindow, getYtmView, isEnabled, topOffset
       log.warn(`Ignoring unknown Youtubify command ${String(command)}`);
       return;
     }
+    // Nothing plays on the user's account while testing, so their listening history stays untouched
+    if (signedInTest && command !== "pause") return log.warn(`Youtubify signed-in test: blocked command ${command}`);
     const contents = getYtmView()?.webContents;
     if (!contents) return;
     // The hidden view never receives real clicks, and its autoplay policy may require user
@@ -160,6 +164,7 @@ export function setupYtmBridge({ getMainWindow, getYtmView, isEnabled, topOffset
 
   ipcMain.handle("ytf:queueAdd", async (event, target: unknown) => {
     if (!fromMainWindow(event.sender)) throw new Error("ytf:queueAdd is only available to the main window");
+    if (signedInTest) throw new Error("queueAdd is blocked in signed-in test mode");
     const t = target as { videoId?: unknown; playlistId?: unknown; next?: unknown } | null;
     const id = (v: unknown) => (typeof v === "string" && /^[\w-]+$/.test(v) ? v : undefined);
     const arg = { videoId: id(t?.videoId), playlistId: id(t?.playlistId), next: t?.next === true };
@@ -195,7 +200,7 @@ export function setupYtmBridge({ getMainWindow, getYtmView, isEnabled, topOffset
 
   ipcMain.on("ytf:signIn", event => {
     if (!fromMainWindow(event.sender)) return;
-    if (isTestCopy) return log.warn("Youtubify test copy: sign-in is disabled");
+    if (isTestCopy && !signedInTest) return log.warn("Youtubify test copy: sign-in is disabled");
     getYtmView()?.webContents.loadURL(SIGN_IN_URL);
   });
 
