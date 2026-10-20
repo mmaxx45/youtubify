@@ -36,6 +36,8 @@ export interface Card {
   play?: PlayEndpoint;
   // The user's own playlist (YTM offers "Delete playlist" for it): editable, accepts dropped songs
   owned?: boolean;
+  // An episode card's show
+  show?: ArtistRef;
 }
 
 export interface Track {

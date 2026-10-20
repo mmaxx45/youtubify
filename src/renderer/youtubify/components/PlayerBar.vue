@@ -63,7 +63,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKey));
     <div class="left">
       <template v-if="track">
         <button class="art" aria-label="Now playing view" :draggable="!playingEpisode" @dragstart="onDragStart" @click="emit('toggle-panel', 'nowplaying')">
-          <Cover :thumbs="track.thumbnails" :size="56" />
+          <Cover :thumbs="track.thumbnails" :size="56" :letterbox="playingEpisode" />
         </button>
         <div class="meta" :draggable="!playingEpisode" @dragstart="onDragStart" @contextmenu="onMenu">
           <span class="title ytf-ellipsis" :class="{ 'ytf-link': track.albumId || playingEpisode }" @click="openTitle">{{ track.title }}</span>

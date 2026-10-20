@@ -3,7 +3,7 @@
 import { computed, ref, watch } from "vue";
 import type { CollectionPage, Track } from "../ytm/models";
 import { getCollection, getCollectionMore, movePlaylistItem, play, playlistIdOf, savePlaylist } from "../ytm/client";
-import { editDetails, lastDetailsEdit } from "../state/playlistEdits";
+import { editDetails, lastDetailsEdit, lastPlaylistAdd } from "../state/playlistEdits";
 import { openMenuAt } from "../state/menu";
 import { collectionMenu } from "../menus";
 import { refreshLibrary } from "../state/library";
@@ -102,6 +102,13 @@ watch(lastDetailsEdit, edit => {
   if (!edit || !p || p.playlistId !== edit.playlistId) return;
   if (edit.title !== undefined) p.title = edit.title;
   if (edit.description !== undefined) p.description = edit.description;
+});
+
+// Songs added from a menu or by drag & drop appear at the end right away. While more rows are still
+// to load they arrive with the next page instead.
+watch(lastPlaylistAdd, add => {
+  const p = page.value;
+  if (add && p && p.playlistId === add.playlistId && !p.continuation) p.tracks = [...p.tracks, add.track];
 });
 
 // Drag & drop reorder: move the row right away, undo it if YouTube Music refuses

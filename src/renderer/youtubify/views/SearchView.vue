@@ -2,7 +2,7 @@
 // Spotify's search: "Browse all" tiles when empty, otherwise filter chips over either the "All"
 // overview (Top result + Songs, then rows) or the full, endlessly scrolling list of one result type.
 import { computed, nextTick, ref, watch } from "vue";
-import type { BrowseGroup, SearchFilter, SearchPage, SearchResults, Track } from "../ytm/models";
+import type { BrowseGroup, Card, SearchFilter, SearchPage, SearchResults, Track } from "../ytm/models";
 import { getMoods, play, search, searchFiltered, searchMore } from "../ytm/client";
 import { navigate, open } from "../state/router";
 import { isPlaying, togglePlay, track as current } from "../state/player";
@@ -137,10 +137,15 @@ const filterTracks = computed(() => props.filter === "songs" || props.filter ===
 const filterEmpty = computed(() => !!filtered.value && !filtered.value.tracks.length && !filtered.value.cards.length);
 
 const top = computed(() => result.value?.top);
-const topType = computed(() => {
-  const k = top.value?.card.kind;
-  return k === "artist" ? "Artist" : k === "album" ? "Album" : k === "playlist" ? "Playlist" : k === "video" ? "Video" : "Song";
-});
+const topTypes: Partial<Record<Card["kind"], string>> = {
+  artist: "Artist",
+  album: "Album",
+  playlist: "Playlist",
+  video: "Video",
+  podcast: "Podcast",
+  episode: "Podcast episode"
+};
+const topType = computed(() => topTypes[top.value?.card.kind ?? "song"] ?? "Song");
 const topIsCurrent = computed(() => {
   const vid = (top.value?.card.play as { watchEndpoint?: { videoId?: string } } | undefined)?.watchEndpoint?.videoId;
   return !!vid && current.value?.id === vid;
@@ -227,7 +232,7 @@ const songs = computed<Track[]>(() => {
           <section v-if="top" class="top">
             <h2 class="ytf-section-title">Top result</h2>
             <div class="top-card" role="button" tabindex="0" @click="top.card.browse ? open(top.card.browse) : playTop()">
-              <Cover :thumbs="top.card.thumbs" :size="92" :round="top.card.round" :radius="6" />
+              <Cover :thumbs="top.card.thumbs" :size="92" :round="top.card.round" :radius="6" :letterbox="top.card.kind === 'episode'" />
               <div class="top-title ytf-ellipsis">{{ top.card.title }}</div>
               <div class="top-sub">
                 <span class="ytf-ellipsis">{{ top.card.subtitle.split(" • ").slice(1).join(" • ") || top.card.subtitle }}</span>

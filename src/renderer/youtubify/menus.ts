@@ -2,14 +2,14 @@
 
 import type { ArtistPage, ArtistRef, Card, CollectionPage, Episode, PlaylistOption, Track } from "./ytm/models";
 import { isFollowingPodcast, isSavedEpisode, setFollowingPodcast, setSavedEpisode } from "./state/podcasts";
-import { addToPlaylist, addToQueue, createPlaylist, getPlaylistOptions, play, removeFromPlaylist, savePlaylist } from "./ytm/client";
+import { addToQueue, createPlaylist, getPlaylistOptions, play, removeFromPlaylist, savePlaylist } from "./ytm/client";
 import type { MenuEntry, MenuItem } from "./state/menu";
 import { isLiked, setLiked } from "./state/likes";
 import { isFollowing, setFollowing } from "./state/follows";
 import { albums, playlists, refreshLibrary } from "./state/library";
 import { navigate } from "./state/router";
 import { toast } from "./state/toast";
-import { deleteOwnPlaylist, editDetails, type OwnPlaylist } from "./state/playlistEdits";
+import { addTrackToPlaylist, deleteOwnPlaylist, editDetails, type OwnPlaylist } from "./state/playlistEdits";
 
 const YTM = "https://music.youtube.com";
 
@@ -55,7 +55,8 @@ function artistItem(artists: ArtistRef[]): MenuItem | null {
   };
 }
 
-function addToPlaylistItem(videoId: string, title: string): MenuItem {
+function addToPlaylistItem(track: Track): MenuItem {
+  const { videoId, title } = track;
   return {
     label: "Add to playlist",
     icon: "plus",
@@ -85,7 +86,7 @@ function addToPlaylistItem(videoId: string, title: string): MenuItem {
             action: async () => {
               if (o.containsSong) return toast(`Already in ${o.title}`);
               try {
-                await addToPlaylist(o.playlistId, videoId);
+                await addTrackToPlaylist(o.playlistId, track);
                 toast(`Added to ${o.title}`);
               } catch {
                 toast(`Couldn't add to ${o.title}`);
@@ -110,7 +111,7 @@ export interface TrackMenuContext {
 export function trackMenu(track: Track, ctx: TrackMenuContext = {}): MenuEntry[] {
   const liked = isLiked(track.videoId, track.liked ?? false);
   const entries: (MenuEntry | null)[] = [
-    addToPlaylistItem(track.videoId, track.title),
+    addToPlaylistItem(track),
     ctx.editablePlaylistId && track.setVideoId
       ? {
           label: "Remove from this playlist",
@@ -181,7 +182,7 @@ export function cardMenu(card: Card): MenuEntry[] {
   if (card.kind === "artist" && card.browse) return artistMenuFor(card.browse.browseId);
   if (card.kind === "podcast" && card.browse) return podcastMenu(card.browse.browseId.replace(/^MPSP/, ""));
   const episodeId = (card.play as { watchEndpoint?: { videoId?: string } } | undefined)?.watchEndpoint?.videoId;
-  if (card.kind === "episode" && episodeId) return episodeMenu({ videoId: episodeId, play: card.play! });
+  if (card.kind === "episode" && episodeId) return episodeMenu({ videoId: episodeId, play: card.play!, show: card.show });
 
   const videoId = (card.play as { watchEndpoint?: { videoId?: string } } | undefined)?.watchEndpoint?.videoId;
   if ((card.kind === "song" || card.kind === "video") && videoId) {

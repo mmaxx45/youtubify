@@ -29,6 +29,19 @@ export interface OwnPlaylist {
 // Latest saved change, so an open playlist page can show it without reloading
 export const lastDetailsEdit = shallowRef<({ playlistId: string } & PlaylistDetailsChange) | null>(null);
 
+// Latest song added to one of the user's playlists, so that playlist's open page can show it right away
+export const lastPlaylistAdd = shallowRef<{ playlistId: string; track: Track } | null>(null);
+
+type AddResult = { playlistEditResults?: { playlistEditVideoAddedResultData?: { setVideoId?: string } }[] } | undefined;
+
+/** Add a song to a playlist (menus and drag & drop). */
+export async function addTrackToPlaylist(playlistId: string, track: Track, allowDuplicate = false) {
+  const res = (await addToPlaylist(playlistId, track.videoId, allowDuplicate)) as AddResult;
+  // Without a new entry id YTM skipped the song (already in there), so there's nothing new to show
+  const setVideoId = res?.playlistEditResults?.[0]?.playlistEditVideoAddedResultData?.setVideoId;
+  if (setVideoId) lastPlaylistAdd.value = { playlistId, track: { ...track, key: `added-${setVideoId}`, setVideoId, detail: "" } };
+}
+
 const browseIdOf = (p: Pick<OwnPlaylist, "playlistId" | "browseId">) => p.browseId ?? `VL${p.playlistId}`;
 
 async function saveDetails(playlist: OwnPlaylist, changes: PlaylistDetailsChange) {
@@ -87,7 +100,7 @@ export async function dropTrackOnPlaylist(browseId: string, title: string, track
     if (!add) return;
   }
   try {
-    await addToPlaylist(playlistId, track.videoId, duplicate);
+    await addTrackToPlaylist(playlistId, track, duplicate);
     toast(`Added to ${title}`);
   } catch {
     toast(`Couldn't add to ${title}`);

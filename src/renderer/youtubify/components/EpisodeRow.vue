@@ -35,7 +35,7 @@ function onPlay() {
     @keydown.enter="open(episode.browse)"
     @contextmenu="openMenu($event, menu())"
   >
-    <Cover :thumbs="episode.thumbs" :size="112" :radius="8" class="cover" />
+    <Cover :thumbs="episode.thumbs" :size="112" :radius="8" letterbox class="cover" />
     <div class="body">
       <div class="title ytf-clamp-2">{{ episode.title }}</div>
       <div v-if="showShow && episode.show" class="show ytf-ellipsis">

@@ -89,7 +89,7 @@ const timeLabel = computed(() => {
 
     <template v-else>
       <header class="hero">
-        <Cover v-if="episode" :thumbs="episode.thumbs" :size="232" :radius="8" class="hero-cover" />
+        <Cover v-if="episode" :thumbs="episode.thumbs" :size="232" :radius="8" letterbox class="hero-cover" />
         <div v-else class="hero-cover ytf-skeleton" />
         <div v-if="episode" class="hero-text">
           <span class="type">Podcast Episode</span>

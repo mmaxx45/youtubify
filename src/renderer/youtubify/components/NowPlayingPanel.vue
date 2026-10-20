@@ -12,7 +12,7 @@ import { toast } from "../state/toast";
 import { trackMenu } from "../menus";
 import type { EngineQueueItem } from "../state/player";
 import type { ArtistPage, ArtistRef, Track } from "../ytm/models";
-import { playingEpisode } from "../state/podcasts";
+import { isSavedEpisode, playingEpisode, setSavedEpisode, showOf } from "../state/podcasts";
 import Cover from "./Cover.vue";
 import Icon from "./Icon.vue";
 
@@ -22,6 +22,14 @@ const emit = defineEmits<{ (e: "close"): void; (e: "mode", mode: "nowplaying" | 
 const { track, upNext, queueItems, queueIndex } = player;
 const liked = computed(() => isLiked(track.value?.id, player.liked.value));
 const like = () => track.value && toggleLiked(track.value.id, player.liked.value);
+
+// Episodes: the byline opens the show (when known) and + means Your Episodes, as in the player bar
+const episodeShow = computed(() => (playingEpisode.value ? showOf(track.value?.id) : undefined));
+const episodeSaved = computed(() => !!track.value && isSavedEpisode(track.value.id));
+function openByline() {
+  if (episodeShow.value?.browseId) navigate({ name: "podcast", id: episodeShow.value.browseId });
+  else if (track.value?.channelId) navigate({ name: "artist", id: track.value.channelId });
+}
 const onMenu = (e: MouseEvent) => player.currentAsTrack.value && openMenu(e, trackMenu(player.currentAsTrack.value));
 
 // Spotify's lyrics card: a preview of the first lines
@@ -196,7 +204,7 @@ const onHistoryMore = (e: MouseEvent, t: Track) => openMenuAt(e.currentTarget as
     <div v-if="!track" class="empty">Play something to see it here.</div>
 
     <div v-else-if="props.mode === 'nowplaying'" class="scroll">
-      <Cover :thumbs="track.thumbnails" :size="400" :radius="8" class="hero" />
+      <Cover :thumbs="track.thumbnails" :size="400" :radius="8" :letterbox="playingEpisode" class="hero" />
       <div class="track" @contextmenu="onMenu">
         <div class="names">
           <div
@@ -208,9 +216,18 @@ const onHistoryMore = (e: MouseEvent, t: Track) => openMenuAt(e.currentTarget as
           >
             {{ track.title }}
           </div>
-          <div class="artist ytf-ellipsis ytf-link" @click="navigate({ name: 'artist', id: track.channelId })">{{ track.author }}</div>
+          <div class="artist ytf-ellipsis ytf-link" @click="openByline">{{ episodeShow?.name ?? track.author }}</div>
         </div>
-        <button class="ytf-icon-button" :class="{ active: liked }" :aria-label="liked ? 'Remove from Liked Songs' : 'Save to Liked Songs'" @click="like">
+        <button
+          v-if="playingEpisode"
+          class="ytf-icon-button"
+          :class="{ active: episodeSaved }"
+          :aria-label="episodeSaved ? 'Remove from Your Episodes' : 'Add to Your Episodes'"
+          @click="setSavedEpisode(track.id, !episodeSaved)"
+        >
+          <Icon :name="episodeSaved ? 'check-circle' : 'plus-circle'" :size="24" />
+        </button>
+        <button v-else class="ytf-icon-button" :class="{ active: liked }" :aria-label="liked ? 'Remove from Liked Songs' : 'Save to Liked Songs'" @click="like">
           <Icon :name="liked ? 'check-circle' : 'plus-circle'" :size="24" />
         </button>
       </div>

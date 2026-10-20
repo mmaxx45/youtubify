@@ -642,7 +642,8 @@ export function episodeCard(e: Episode): Card {
     round: false,
     wide: true,
     browse: e.browse,
-    play: e.play
+    play: e.play,
+    show: e.show
   };
 }
 
