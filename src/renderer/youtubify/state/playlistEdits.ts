@@ -1,8 +1,8 @@
 // Editing the user's own playlists like Spotify: "Edit details", "Delete" and dropping songs onto them.
 
 import { shallowRef } from "vue";
-import type { PlaylistOption, Thumb, Track } from "../ytm/models";
-import { addToPlaylist, deletePlaylist, editPlaylistDetails, getCollection, getPlaylistOptions } from "../ytm/client";
+import type { Thumb, Track } from "../ytm/models";
+import { addToPlaylist, AlreadyInPlaylist, createPlaylist, deletePlaylist, editPlaylistDetails, getCollection } from "../ytm/client";
 import EditDetailsDialog from "../components/EditDetailsDialog.vue";
 import { confirmDialog, openDialog } from "./dialog";
 import { playlists, refreshLibrary } from "./library";
@@ -34,12 +34,26 @@ export const lastPlaylistAdd = shallowRef<{ playlistId: string; track: Track } |
 
 type AddResult = { playlistEditResults?: { playlistEditVideoAddedResultData?: { setVideoId?: string } }[] } | undefined;
 
-/** Add a song to a playlist (menus and drag & drop). */
-export async function addTrackToPlaylist(playlistId: string, track: Track, allowDuplicate = false) {
-  const res = (await addToPlaylist(playlistId, track.videoId, allowDuplicate)) as AddResult;
-  // Without a new entry id YTM skipped the song (already in there), so there's nothing new to show
-  const setVideoId = res?.playlistEditResults?.[0]?.playlistEditVideoAddedResultData?.setVideoId;
-  if (setVideoId) lastPlaylistAdd.value = { playlistId, track: { ...track, key: `added-${setVideoId}`, setVideoId, detail: "" } };
+/** Add a song to a playlist (menus and drag & drop); asks first if it's already in there, like Spotify. */
+export async function addTrackToPlaylist(playlistId: string, title: string, track: Track) {
+  const add = async (allowDuplicate: boolean) => {
+    const res = (await addToPlaylist(playlistId, track.videoId, allowDuplicate)) as AddResult;
+    const setVideoId = res?.playlistEditResults?.[0]?.playlistEditVideoAddedResultData?.setVideoId;
+    if (setVideoId) lastPlaylistAdd.value = { playlistId, track: { ...track, key: `added-${setVideoId}`, setVideoId, detail: "" } };
+    toast(`Added to ${title}`);
+  };
+  try {
+    await add(false);
+  } catch (e) {
+    if (!(e instanceof AlreadyInPlaylist)) return toast(`Couldn't add to ${title}`);
+    const again = await confirmDialog({
+      title: "Already added",
+      message: ["This is already in your ", { strong: title }, " playlist."],
+      confirmLabel: "Add anyway",
+      cancelLabel: "Don't add"
+    });
+    if (again) await add(true).catch(() => toast(`Couldn't add to ${title}`));
+  }
 }
 
 const browseIdOf = (p: Pick<OwnPlaylist, "playlistId" | "browseId">) => p.browseId ?? `VL${p.playlistId}`;
@@ -59,6 +73,33 @@ export function editDetails(playlist: OwnPlaylist) {
     thumbs: playlist.thumbs,
     loadDescription: async () => (await getCollection(browseIdOf(playlist))).description,
     save: (changes: PlaylistDetailsChange) => saveDetails(playlist, changes)
+  });
+}
+
+// YTM needs a few seconds before a new playlist can be loaded; opening it right away shows an empty page.
+// The dialog keeps showing "saving" meanwhile.
+async function whenReady(browseId: string) {
+  for (let i = 0; i < 12; i++) {
+    const page = await getCollection(browseId).catch((): null => null);
+    if (page?.title) return;
+    await new Promise(r => setTimeout(r, 1000));
+  }
+}
+
+/** Spotify-style Create: ask for the name (and description) first, create the playlist on save and open it. */
+export function createPlaylistDialog(suggestedTitle: string, videoIds: string[] = [], thumbs: Thumb[] = []) {
+  openDialog(EditDetailsDialog, {
+    title: suggestedTitle,
+    description: "",
+    thumbs,
+    isNew: true,
+    save: async (details: PlaylistDetailsChange) => {
+      const id = await createPlaylist(details.title!, videoIds, details.description);
+      await whenReady(id);
+      toast(videoIds.length ? `Added to ${details.title}` : "Playlist created");
+      await refreshLibrary();
+      navigate({ name: "collection", id });
+    }
   });
 }
 
@@ -84,25 +125,8 @@ export async function deleteOwnPlaylist(playlist: Pick<OwnPlaylist, "playlistId"
   if (r.name === "collection" && r.id === browseId) navigate({ name: "home" }, true);
 }
 
-/** Drop a song onto a playlist in Your Library; asks first if it's already in there, like Spotify. */
+/** Drop a song onto a playlist in Your Library. */
 export async function dropTrackOnPlaylist(browseId: string, title: string, track: Track) {
   if (browseId === "VLLM") return setLiked(track.videoId, true);
-  const playlistId = browseId.replace(/^VL/, "");
-  const options = await getPlaylistOptions(track.videoId).catch((): PlaylistOption[] => []);
-  const duplicate = options.some(o => o.playlistId === playlistId && o.containsSong);
-  if (duplicate) {
-    const add = await confirmDialog({
-      title: "Already added",
-      message: ["This is already in your ", { strong: title }, " playlist."],
-      confirmLabel: "Add anyway",
-      cancelLabel: "Don't add"
-    });
-    if (!add) return;
-  }
-  try {
-    await addTrackToPlaylist(playlistId, track, duplicate);
-    toast(`Added to ${title}`);
-  } catch {
-    toast(`Couldn't add to ${title}`);
-  }
+  await addTrackToPlaylist(browseId.replace(/^VL/, ""), title, track);
 }

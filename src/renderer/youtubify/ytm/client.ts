@@ -144,8 +144,8 @@ export async function getLibrary(): Promise<{ playlists: Card[]; albums: Card[];
 }
 
 /** Creates a private playlist like Spotify's "Create" button and returns its browse id. */
-export async function createPlaylist(title: string, videoIds: string[] = []): Promise<string> {
-  const res = await call<{ playlistId?: string }>("playlist/create", { title, privacyStatus: "PRIVATE", videoIds });
+export async function createPlaylist(title: string, videoIds: string[] = [], description = ""): Promise<string> {
+  const res = await call<{ playlistId?: string }>("playlist/create", { title, description, privacyStatus: "PRIVATE", videoIds });
   if (!res.playlistId) throw new Error("YouTube Music didn't return the new playlist");
   return `VL${res.playlistId}`;
 }
@@ -167,12 +167,19 @@ export async function getPlaylistOptions(videoId: string): Promise<PlaylistOptio
   return parse.parseAddToPlaylist(await call("playlist/get_add_to_playlist", { videoIds: [videoId] }));
 }
 
-// Without the dedupe option YTM adds the song again (Spotify's "Add anyway")
-export const addToPlaylist = (playlistId: string, videoId: string, allowDuplicate = false) =>
-  call("browse/edit_playlist", {
+export class AlreadyInPlaylist extends Error {}
+
+// Like YTM's own client: DEDUPE_OPTION_CHECK refuses a song that's already in the playlist (STATUS_FAILED with an
+// "Add anyway" toast), DEDUPE_OPTION_SKIP skips that check and adds it regardless (Spotify's "Add anyway").
+export async function addToPlaylist(playlistId: string, videoId: string, allowDuplicate = false) {
+  const res = await call<{ status?: string; actions?: unknown }>("browse/edit_playlist", {
     playlistId,
-    actions: [{ action: "ACTION_ADD_VIDEO", addedVideoId: videoId, ...(allowDuplicate ? {} : { dedupeOption: "DEDUPE_OPTION_SKIP" }) }]
+    actions: [{ action: "ACTION_ADD_VIDEO", addedVideoId: videoId, dedupeOption: allowDuplicate ? "DEDUPE_OPTION_SKIP" : "DEDUPE_OPTION_CHECK" }]
   });
+  if (res?.status === "STATUS_FAILED")
+    throw JSON.stringify(res.actions ?? "").includes("DEDUPE_OPTION_SKIP") ? new AlreadyInPlaylist() : new Error("Couldn't add to the playlist");
+  return res;
+}
 
 export const removeFromPlaylist = (playlistId: string, videoId: string, setVideoId: string) =>
   call("browse/edit_playlist", { playlistId, actions: [{ action: "ACTION_REMOVE_VIDEO", removedVideoId: videoId, setVideoId }] });

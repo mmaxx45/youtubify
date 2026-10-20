@@ -54,7 +54,8 @@ export async function setSavedEpisode(videoId: string, save: boolean) {
   const before = saved.get(videoId);
   saved.set(videoId, save);
   try {
-    await saveEpisode(videoId, save);
+    // Undoing within seconds can be refused (403) until YTM has caught up with the first change; try once more
+    await saveEpisode(videoId, save).catch(() => new Promise(r => setTimeout(r, 2000)).then(() => saveEpisode(videoId, save)));
     toast(save ? "Added to Your Episodes" : "Removed from Your Episodes");
   } catch {
     if (before === undefined) saved.delete(videoId);

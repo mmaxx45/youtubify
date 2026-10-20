@@ -1,6 +1,7 @@
 <script setup lang="ts">
-// Spotify's "Edit details" dialog for the user's own playlist: cover, name and description.
-import { computed, ref } from "vue";
+// Spotify's "Edit details" dialog for the user's own playlist: cover, name and description. With `isNew` it
+// asks for the details of a playlist that is only created on save.
+import { computed, onMounted, ref } from "vue";
 import type { Thumb } from "../ytm/models";
 import type { PlaylistDetailsChange } from "../state/playlistEdits";
 import Cover from "./Cover.vue";
@@ -14,6 +15,7 @@ const props = defineProps<{
   thumbs: Thumb[];
   loadDescription?: () => Promise<string>;
   save: (changes: PlaylistDetailsChange) => Promise<void>;
+  isNew?: boolean;
 }>();
 const emit = defineEmits<{ (e: "close"): void }>();
 
@@ -24,6 +26,10 @@ const descriptionText = ref(original.value);
 const loaded = ref(props.description !== undefined || !props.loadDescription);
 const saving = ref(false);
 const error = ref("");
+
+// The suggested name is selected, so typing replaces it
+const nameInput = ref<HTMLInputElement | null>(null);
+onMounted(() => nameInput.value?.select());
 
 if (!loaded.value)
   props.loadDescription!()
@@ -45,7 +51,8 @@ async function submit() {
     error.value = "Playlist name is required.";
     return;
   }
-  const c = changes.value;
+  // A new playlist always needs all of its details
+  const c = props.isNew ? { title: name.value.trim(), description: descriptionText.value.trim() } : changes.value;
   if (c.title === undefined && c.description === undefined) return emit("close");
   saving.value = true;
   error.value = "";
@@ -61,7 +68,7 @@ async function submit() {
 </script>
 
 <template>
-  <Modal title="Edit details" @close="emit('close')">
+  <Modal :title="isNew ? 'Create playlist' : 'Edit details'" @close="emit('close')">
     <form class="body" @submit.prevent="submit">
       <p v-if="error" class="error" role="alert">
         <Icon name="alert-circle" :size="16" />
@@ -70,14 +77,14 @@ async function submit() {
       <div class="grid">
         <Cover class="cover" :thumbs="props.thumbs" :size="180" />
         <label class="field name">
-          <input v-model="name" maxlength="150" placeholder="Add a name" autofocus @input="error = ''" />
+          <input ref="nameInput" v-model="name" maxlength="150" placeholder="Add a name" autofocus @input="error = ''" />
           <span class="label">Name</span>
         </label>
         <label class="field description">
           <textarea v-model="descriptionText" maxlength="5000" :placeholder="loaded ? 'Add an optional description' : 'Loading…'" :disabled="!loaded" />
           <span class="label">Description</span>
         </label>
-        <button class="save" type="submit" :disabled="saving">Save</button>
+        <button class="save" type="submit" :disabled="saving">{{ isNew ? "Create" : "Save" }}</button>
       </div>
     </form>
   </Modal>

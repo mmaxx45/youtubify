@@ -2,14 +2,14 @@
 
 import type { ArtistPage, ArtistRef, Card, CollectionPage, Episode, PlaylistOption, Track } from "./ytm/models";
 import { isFollowingPodcast, isSavedEpisode, setFollowingPodcast, setSavedEpisode } from "./state/podcasts";
-import { addToQueue, createPlaylist, getPlaylistOptions, play, removeFromPlaylist, savePlaylist } from "./ytm/client";
+import { addToQueue, getPlaylistOptions, play, removeFromPlaylist, savePlaylist } from "./ytm/client";
 import type { MenuEntry, MenuItem } from "./state/menu";
 import { isLiked, setLiked } from "./state/likes";
 import { isFollowing, setFollowing } from "./state/follows";
 import { albums, playlists, refreshLibrary } from "./state/library";
 import { navigate } from "./state/router";
 import { toast } from "./state/toast";
-import { addTrackToPlaylist, deleteOwnPlaylist, editDetails, type OwnPlaylist } from "./state/playlistEdits";
+import { addTrackToPlaylist, createPlaylistDialog, deleteOwnPlaylist, editDetails, type OwnPlaylist } from "./state/playlistEdits";
 
 const YTM = "https://music.youtube.com";
 
@@ -67,31 +67,14 @@ function addToPlaylistItem(track: Track): MenuItem {
         {
           label: "New playlist",
           icon: "plus",
-          action: async () => {
-            try {
-              const id = await createPlaylist(title, [videoId]);
-              toast(`Added to ${title}`);
-              await refreshLibrary();
-              navigate({ name: "collection", id });
-            } catch {
-              toast("Couldn't create the playlist");
-            }
-          }
+          action: () => createPlaylistDialog(title, [videoId], track.thumbs)
         },
         "divider",
         ...options.map(
           (o): MenuItem => ({
             label: o.title,
             checked: o.containsSong,
-            action: async () => {
-              if (o.containsSong) return toast(`Already in ${o.title}`);
-              try {
-                await addTrackToPlaylist(o.playlistId, track);
-                toast(`Added to ${o.title}`);
-              } catch {
-                toast(`Couldn't add to ${o.title}`);
-              }
-            }
+            action: () => addTrackToPlaylist(o.playlistId, o.title, track)
           })
         )
       ];

@@ -3,14 +3,13 @@
 import { computed, nextTick, ref } from "vue";
 import type { Card } from "../ytm/models";
 import { albums, artists, error, loading, playlists, podcasts, refreshLibrary } from "../state/library";
-import { navigate, open, route } from "../state/router";
-import { createPlaylist } from "../ytm/client";
+import { open, route } from "../state/router";
 import { session, signIn } from "../state/session";
 import { isPlaying, playlistId } from "../state/player";
 import { openMenu } from "../state/menu";
 import { cardMenu } from "../menus";
 import { dragging, leavesElement } from "../state/drag";
-import { dropTrackOnPlaylist } from "../state/playlistEdits";
+import { createPlaylistDialog, dropTrackOnPlaylist } from "../state/playlistEdits";
 import Cover from "./Cover.vue";
 import Icon from "./Icon.vue";
 
@@ -69,20 +68,8 @@ const isActive = (c: Card) => {
 const isPlayingFrom = (c: Card) =>
   !!playlistId.value && !!c.browse && c.browse.browseId.startsWith("VL") && playlistId.value.endsWith(c.browse.browseId.slice(2));
 
-const creating = ref(false);
-async function create() {
-  if (creating.value) return;
-  creating.value = true;
-  try {
-    const id = await createPlaylist(`My Playlist #${playlists.value.length}`);
-    await refreshLibrary();
-    navigate({ name: "collection", id });
-  } catch (e) {
-    error.value = e instanceof Error ? e.message : String(e);
-  } finally {
-    creating.value = false;
-  }
-}
+// Like Spotify's Create, but the name is asked for first instead of renaming afterwards
+const create = () => createPlaylistDialog(`My Playlist #${playlists.value.length}`);
 
 // Dragged songs can be dropped onto your own playlists (and Liked Songs) to add them
 const dropTarget = ref<string | null>(null);
@@ -122,7 +109,7 @@ async function startSearch() {
         <Icon :name="props.collapsed ? 'library' : 'library-filled'" :size="24" />
         <span v-if="!props.collapsed">Your Library</span>
       </button>
-      <button v-if="!props.collapsed" class="create" title="Create playlist" :disabled="creating" @click="create">
+      <button v-if="!props.collapsed" class="create" title="Create playlist" @click="create">
         <Icon name="plus" :size="16" />
         <span>Create</span>
       </button>
